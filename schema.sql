@@ -1,3 +1,15 @@
+-- Drop tables if they exist (in order to avoid FK conflicts)
+DROP TABLE IF EXISTS service_checklists;
+DROP TABLE IF EXISTS service_chunks;
+DROP TABLE IF EXISTS service_records;
+DROP TABLE IF EXISTS sop_steps;
+DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS sop_services;
+DROP TABLE IF EXISTS workstations;
+DROP TABLE IF EXISTS roles;
+
+-- Create tables
+
 CREATE TABLE roles(
     role_id VARCHAR(6) PRIMARY KEY,
     role_name VARCHAR(100),
@@ -14,7 +26,6 @@ CREATE TABLE workstations(
     CONSTRAINT chk_pc_id CHECK(pc_id REGEXP '^PC[0-9]{4}$'),
     CONSTRAINT chk_rpi_id CHECK(rpi_id REGEXP '^RP[0-9]{4}$')
 );
-
 
 CREATE TABLE sop_services (
     service_id VARCHAR(6) PRIMARY KEY,
