@@ -7,12 +7,12 @@ app = create_app()
 
 with app.app_context():
     user = User(
-        user_id="CS001",
-        role_id="RL001",
-        name="Customer Service 1",
-        email="cs1@bank.com",
-        password_hash=generate_password_hash("password123"),
-        is_active=True
+        user_id="US0000",
+        role_id="RL0000",
+        name="Testing",
+        email="testing@example.com",
+        password=generate_password_hash("password"),
+        is_active=1
     )
 
     db.session.add(user)
