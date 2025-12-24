@@ -46,6 +46,7 @@ nvidia-nvtx-cu12==12.8.90
 openai-whisper==20250625
 paho-mqtt==2.1.0
 pycparser==2.23
+pydub==0.25.1
 PyMySQL==1.1.2
 python-dotenv==1.2.1
 python-engineio==4.12.3
