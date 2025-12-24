@@ -58,7 +58,7 @@ if __name__ == "__main__":
     # text = transcribe(audio_data)
 
     # Option 2: Transcribe existing audio file
-    audio_file = "data/audio/LaguTerlaluCinta.wav"
+    audio_file = "data/audio/LaguTerlaluCinta.mp3"
     text = transcribe(audio_file)
 
     # Save chunks to service_chunks
