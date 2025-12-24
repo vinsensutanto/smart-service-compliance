@@ -1,38 +1,51 @@
-import json
-import os
-from datetime import datetime
+from app.extensions import db
+from app.models.service_record import ServiceRecord
 
-BASE_DIR = os.path.join("data", "sessions")
-os.makedirs(BASE_DIR, exist_ok=True)
+
+def generate_service_record_id():
+    last = (
+        db.session.query(ServiceRecord)
+        .order_by(ServiceRecord.service_record_id.desc())
+        .first()
+    )
+
+    if not last:
+        return "SR0001"
+
+    last_num = int(last.service_record_id[2:])
+    new_id = f"SR{last_num + 1:04d}"
+    return new_id[:6]
+
 
 
 def persist_session(session):
-    """
-    Persist a finished session as JSON.
-    Safe to replace with DB later.
-    """
-    path = os.path.join(BASE_DIR, f"{session.session_id}.json")
+    record_id = generate_service_record_id()
+    # truncate to match DB schema
+    record_id = record_id[:6]  # service_record_id VARCHAR(6)
+    user_id = session.user_id[:6] if session.user_id else "unknow"
+    workstation_id = session.workstation_id[:6] if session.workstation_id else "RP01"
 
-    payload = {
-        "session_id": session.session_id,
-        "user_id": session.user_id,
-        "workstation_id": session.workstation_id,
-        "start_time": session.start_dt.isoformat(),
-        "end_time": session.end_dt.isoformat() if session.end_dt else None,
-        "duration_sec": session.duration,
-        "audio_chunks": len(session.audio_chunks),
-        "text": session.text.strip(),
-        "service_detected": session.service_detected,
-        "confidence": session.confidence,
-        "checklist": session.checklist,
-        "stored_at": datetime.now().isoformat(),
-    }
+    record = ServiceRecord(
+        service_record_id=record_id,
+        workstation_id=workstation_id.upper(),
+        user_id=user_id,
+        service_detected=session.service_detected,
+        confidence=session.confidence,
+        start_time=session.start_dt,
+        end_time=session.end_time,
+        duration=session.duration_sec,
+        text=session.text,
+        is_normal_flow=True,
+        reason=None,
+        audio_path=None,
+    )
 
-    with open(path, "w") as f:
-        json.dump(payload, f, indent=2)
+
+    db.session.add(record)
+    db.session.commit()
 
     print(
-        f"[SESSION SAVED] {session.session_id} | "
-        f"duration={payload['duration_sec']}s | "
-        f"chunks={payload['audio_chunks']}"
+        f"[SESSION SAVED] {record_id} | "
+        f"duration={session.duration_sec}s | "
+        f"chunks={len(session.audio_chunks)}"
     )
