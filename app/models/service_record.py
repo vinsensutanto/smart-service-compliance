@@ -28,3 +28,11 @@ class ServiceRecord(db.Model):
     __table_args__ = (
         CheckConstraint("service_record_id REGEXP '^SR[0-9]{4}$'", name="chk_service_record_id"),
     )
+    
+    @classmethod
+    def generate_id(cls, last_id=None):
+        if last_id:
+            num = int(last_id[2:]) + 1
+        else:
+            num = 1
+        return f"SR{num:04d}"

@@ -3,6 +3,7 @@ from flask import Flask
 from app.config import Config
 from app.extensions import db, login_manager, socketio
 from app.models.user import User
+from app.services.audio_ingestor import start_ingestor
 from app.services.mqtt_client import start_mqtt
 
 def create_app():
@@ -24,6 +25,9 @@ def create_app():
     app.register_blueprint(service_bp)
     
     with app.app_context():
+        # Start MQTT client for session management
         start_mqtt(app)
+        # Start Whisper ingestor to process audio chunks
+        start_ingestor(app, app.config["MQTT_BROKER"], app.config["MQTT_PORT"])
 
     return app
