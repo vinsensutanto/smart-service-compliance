@@ -23,11 +23,5 @@ def create_app():
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(service_bp)
-    
-    with app.app_context():
-        # Start MQTT client for session management
-        start_mqtt(app)
-        # Start Whisper ingestor to process audio chunks
-        start_ingestor(app, app.config["MQTT_BROKER"], app.config["MQTT_PORT"])
 
     return app

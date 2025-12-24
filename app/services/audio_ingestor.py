@@ -13,6 +13,16 @@ from app.extensions import db
 from app.models.service_chunk import ServiceChunk
 from app.models.service_record import ServiceRecord
 
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+DTYPE = torch.float16 if DEVICE == "cuda" else torch.float32
+
+print(f"[WHISPER] Using device={DEVICE}, dtype={DTYPE}")
+
+WHISPER_MODEL = whisper.load_model(
+    "base",
+    device=DEVICE
+)
+
 # === Audio queue for processing ===
 audio_queue = queue.Queue()
 
@@ -22,7 +32,14 @@ active_sessions = {}  # key: session_id, value: service_record_id
 # === Load Whisper model once ===
 model = whisper.load_model("base")  # "base" or "small", "medium"
 
+_ingestor_started = False
+
 def start_ingestor(app, broker="localhost", port=1883):
+    global _ingestor_started
+    if _ingestor_started:
+        print("[INGESTOR] Already started, skipping duplicate start")
+        return
+    _ingestor_started = True
     """
     MQTT client that ingests audio chunks from RPs, transcribes via Whisper, 
     and saves text chunks into the database.
@@ -79,8 +96,16 @@ def start_ingestor(app, broker="localhost", port=1883):
                     temp_path = tmpfile.name
 
                 # Transcribe WAV file with Whisper
-                result = model.transcribe(temp_path, language="id")
+                result = WHISPER_MODEL.transcribe(
+                    temp_path,
+                    language="id",
+                    fp16=(DEVICE == "cuda"),
+                    verbose=False
+                )
                 text = result.get("text", "").strip()
+
+                if not text or len(text) < 3:
+                    return
 
                 # Trim text to 255 characters for DB
                 if len(text) > 255:
@@ -113,7 +138,7 @@ def start_ingestor(app, broker="localhost", port=1883):
 
     # Start processing thread
     threading.Thread(target=process_audio_queue, daemon=True).start()
-
+    
     # Start MQTT client in its own thread
     client = mqtt.Client()
     client.on_connect = on_connect

@@ -77,11 +77,7 @@ for i, chunk in enumerate(chunks, start=1):
     client.publish(topic, json.dumps(payload))
     print(f"[CHUNK {i}] Published to MQTT")
 
-    # Simulated local text
-    simulated_text = f"[Simulated STT chunk {i}]"
-    session.text += " " + simulated_text
-    session.audio_chunks.append(simulated_text)
-    print(f"[CHUNK {i}] {simulated_text}")
+    print(f"[CHUNK {i}] audio published")
 
     os.remove(temp_path)
     time.sleep(0.5)  # Simulate real-time streaming
@@ -89,10 +85,6 @@ for i, chunk in enumerate(chunks, start=1):
 # --- End session ---
 session.end()
 print(f"[SIMULATION] Session ended: duration={session.duration_sec}s")
-
-# --- Persist session ---
-with app.app_context():
-    persist_session(session)
 
 print("[SIMULATION] Session persisted to DB")
 
