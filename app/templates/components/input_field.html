@@ -1,0 +1,45 @@
+{# 
+    Expected variables:
+    - name
+    - label (optional)
+    - type (default: text)
+    - value (optional)
+    - disabled (bool)
+    - readonly (bool)
+    - class (string)
+    - placeholder (string)
+    - form (FlaskForm instance)
+#}
+
+<div class="form-group mb-3">
+
+    {% if label %}
+        <label for="{{ name }}" class="form-label fw-bold">
+            {{ label }}
+        </label>
+    {% endif %}
+
+    <input
+        type="{{ type | default('text') }}"
+        id="{{ name }}"
+        name="{{ name }}"
+        value="{{ request.form.get(name, value | default('')) }}"
+        placeholder="{{ placeholder | default('') }}"
+
+        class="form-control
+               {% if form and form[name].errors %}is-invalid{% endif %}
+               {{ class | default('') }}"
+
+        {% if disabled %}disabled{% endif %}
+        {% if readonly %}readonly{% endif %}
+
+        style="font-size: 0.9rem"
+    >
+
+    {% if form and form[name].errors %}
+        <span class="invalid-feedback">
+            {{ form[name].errors[0] }}
+        </span>
+    {% endif %}
+
+</div>
