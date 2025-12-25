@@ -4,4 +4,7 @@ from flask_socketio import SocketIO
 
 db = SQLAlchemy()
 login_manager = LoginManager()
-socketio = SocketIO(cors_allowed_origins="*", async_mode="eventlet")
+socketio = SocketIO(
+    async_mode="threading",
+    cors_allowed_origins="*"
+)

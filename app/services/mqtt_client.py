@@ -75,13 +75,13 @@ def on_message(client, userdata, msg):
             # Decode Base64 to bytes
             audio_bytes = base64.b64decode(chunk_b64)
 
-            # Save to a temporary WAV file
-            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmpfile:
+            # Save to a temporary mp3 file
+            with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmpfile:
                 tmpfile.write(audio_bytes)
                 temp_path = tmpfile.name
 
             # Optional: convert to AudioSegment (if needed)
-            audio_seg = AudioSegment.from_file(temp_path, format="wav")
+            audio_seg = AudioSegment.from_file(temp_path, format="mp3")
 
             # Add to session
             session.add_audio(temp_path)  # store file path instead of raw bytes

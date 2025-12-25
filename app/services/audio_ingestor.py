@@ -15,6 +15,15 @@ from app.extensions import db
 from app.models.service_chunk import ServiceChunk
 from app.models.service_record import ServiceRecord
 
+from app.services.service_detector import detect_service
+from app.services.sop_engine import load_sop
+
+from app.services.service_detector import should_lock_service
+from collections import defaultdict
+
+
+SESSION_KEYWORD_COUNT = defaultdict(int)
+
 # ===============================
 # Whisper / Torch configuration
 # ===============================
@@ -30,12 +39,15 @@ WHISPER_MODEL = whisper.load_model(
 )
 
 # ===============================
-# Audio queue
+# Queues & Session State
 # ===============================
 audio_queue = queue.Queue()
 
 # session_id -> service_record_id
 active_sessions = {}
+
+# service_record_id -> accumulated text
+session_text_buffer = {}
 
 # Prevent double startup
 _ingestor_started = False
@@ -47,13 +59,6 @@ def start_ingestor(app, broker="localhost", port=1883):
         print("[INGESTOR] Already started, skipping duplicate start")
         return
     _ingestor_started = True
-
-    """
-    MQTT client that:
-    - receives audio chunks
-    - transcribes using Whisper
-    - stores text chunks into DB
-    """
 
     topic = "+/audio/stream"
 
@@ -92,16 +97,16 @@ def start_ingestor(app, broker="localhost", port=1883):
                         workstation_id=rp_id,
                         start_time=datetime.now(timezone.utc)
                     )
+
                     db.session.add(service_record)
                     db.session.commit()
 
                     active_sessions[session_id] = new_id
+                    session_text_buffer[new_id] = ""
 
                 service_record_id = active_sessions[session_id]
 
-            audio_queue.put(
-                (service_record_id, chunk_number, audio_bytes)
-            )
+            audio_queue.put((service_record_id, chunk_number, audio_bytes))
 
             print(
                 f"[INGESTOR] Queued chunk {chunk_number} "
@@ -111,18 +116,15 @@ def start_ingestor(app, broker="localhost", port=1883):
         except Exception as e:
             print(f"[INGESTOR] Failed to process MQTT message: {e}")
 
-    # ===============================
-    # Audio processing worker
-    # ===============================
     def process_audio_queue():
         while True:
             service_record_id, chunk_number, audio_bytes = audio_queue.get()
             temp_path = None
 
             try:
-                # Write chunk to temp WAV
+                # Write audio chunk to temp MP3
                 with tempfile.NamedTemporaryFile(
-                    suffix=".wav",
+                    suffix=".mp3",
                     prefix="chunk_",
                     delete=False
                 ) as tmpfile:
@@ -139,14 +141,61 @@ def start_ingestor(app, broker="localhost", port=1883):
 
                 text = result.get("text", "").strip()
 
-                # Skip empty / noise chunks safely
+                # Skip noise / empty chunks
                 if not text or len(text) < 3:
                     continue
+
+                session_text_buffer[service_record_id] += " " + text
+                full_text = session_text_buffer[service_record_id].strip()
+
+                with app.app_context():
+                    record = (
+                        db.session.query(ServiceRecord)
+                        .filter_by(service_record_id=service_record_id)
+                        .first()
+                    )
+
+                    if record and not record.service_detected:
+                        if len(full_text.split()) < 8:
+                            continue
+
+                        service_key, service_label, confidence, keywords = detect_service(full_text)
+                        
+                        print(
+                            "[DEBUG NLP]",
+                            "key=", service_key,
+                            "label=", service_label,
+                            "confidence=", confidence,
+                            "keywords=", keywords,
+                        )
+
+                        if service_key:
+                            SESSION_KEYWORD_COUNT[record.service_record_id] += 1
+
+                            hit_count = SESSION_KEYWORD_COUNT[record.service_record_id]
+                            confidence = min(1.0, 0.5 + 0.15 * hit_count)
+
+                            print(
+                                f"[DEBUG NLP] SR={record.service_record_id} "
+                                f"service={service_label} hits={hit_count} confidence={confidence}"
+                            )
+
+                            if confidence >= 0.75:
+                                record.service_detected = service_label
+                                record.confidence = round(confidence, 2)
+                                db.session.commit()
+                                SESSION_KEYWORD_COUNT.pop(record.service_record_id, None)
+
+                                print(
+                                    f"[NLP LOCKED] SR={record.service_record_id} "
+                                    f"service={service_label} confidence={confidence}"
+                                )
+
+
 
                 if len(text) > 255:
                     text = text[:255]
 
-                # Save to DB
                 with app.app_context():
                     last_chunk = (
                         db.session.query(ServiceChunk)
@@ -181,9 +230,6 @@ def start_ingestor(app, broker="localhost", port=1883):
                     os.remove(temp_path)
                 audio_queue.task_done()
 
-    # ===============================
-    # Start worker + MQTT
-    # ===============================
     threading.Thread(
         target=process_audio_queue,
         daemon=True

@@ -1,16 +1,25 @@
-# scripts/stt_whisper.py
-import whisper
+# app/services/stt_whisper.py
+from app.services.whisper_model import get_whisper_model
 
-# Load Whisper model once
-model = whisper.load_model("base")  # You can switch to "small" or "medium"
+
+def transcribe(file_path, language="id"):
+    """
+    Transcribe a full audio file using Whisper.
+    """
+    model = get_whisper_model()
+    result = model.transcribe(file_path, language=language)
+    return result
+
 
 def transcribe_chunk(audio_file, language="id"):
     """
-    Transcribe a single audio file (or chunk) using Whisper.
-    Returns text as string.
+    Transcribe a single audio chunk.
+    Returns text only.
     """
+    model = get_whisper_model()
     result = model.transcribe(audio_file, language=language)
-    return result.get("text", "")
+    return result.get("text", "").strip()
+
 
 def record_audio(duration=5, fs=16000):
     """
@@ -20,6 +29,11 @@ def record_audio(duration=5, fs=16000):
     import sounddevice as sd
     import numpy as np
 
-    audio = sd.rec(int(duration * fs), samplerate=fs, channels=1, dtype='float32')
+    audio = sd.rec(
+        int(duration * fs),
+        samplerate=fs,
+        channels=1,
+        dtype="float32"
+    )
     sd.wait()
     return np.squeeze(audio)

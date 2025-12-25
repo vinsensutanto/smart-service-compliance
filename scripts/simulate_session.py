@@ -7,44 +7,27 @@ from datetime import datetime
 from pydub import AudioSegment
 from paho.mqtt import client as mqtt_client
 
-from app import create_app
-from app.services.session_manager import active_sessions, Session
-from app.services.session_store import persist_session
-
-# --- Setup Flask App ---
-app = create_app()
-
-# --- Session Setup ---
+# --- Simulation Config ---
 rp_id = "WS0001"
-session_id = f"{datetime.now().strftime('%Y-%m-%d-%H:%M')}-{rp_id}"
-session = Session(session_id=session_id, user_id="US0001", workstation_id=rp_id)
-active_sessions[rp_id] = session
-
-print(f"[SIMULATION] Session started: {session_id}")
-
-# --- Ensure audio chunk folder exists ---
-os.makedirs("data/audio_chunks", exist_ok=True)
-
-# --- Load WAV audio ---
-audio_file = "data/audio/pendaftaranmbca_laki_tidakfasih.wav"
-audio = AudioSegment.from_file(audio_file, format="wav")
-
-# Split into 3-second chunks
+session_id = f"{datetime.now().strftime('%Y-%m-%d-%H:%M:%S')}-{rp_id}"
+audio_file = "data/audio/pendaftaranmbca_laki_tidakfasih.mp3"
 chunk_length_ms = 3000
-chunks = []
-for i in range(0, len(audio), chunk_length_ms):
-    chunk = audio[i:i + chunk_length_ms]
-    # Pad last chunk if <1s
-    if len(chunk) < 1000:
-        silence = AudioSegment.silent(duration=1000 - len(chunk))
-        chunk += silence
-    chunks.append(chunk)
-
-# --- MQTT Setup ---
 mqtt_broker = "localhost"
 mqtt_port = 1883
 topic = f"{rp_id}/audio/stream"
 
+print(f"[SIMULATION] Session started: {session_id}")
+
+# --- Load audio and split into chunks ---
+audio = AudioSegment.from_file(audio_file, format="mp3")
+chunks = []
+for i in range(0, len(audio), chunk_length_ms):
+    chunk = audio[i:i + chunk_length_ms]
+    if len(chunk) < 1000:
+        chunk += AudioSegment.silent(duration=1000 - len(chunk))
+    chunks.append(chunk)
+
+# --- MQTT Setup ---
 def on_connect(client, userdata, flags, rc):
     print(f"[MQTT] Connected with result code {rc}")
 
@@ -53,18 +36,15 @@ client.on_connect = on_connect
 client.connect(mqtt_broker, mqtt_port, 60)
 client.loop_start()
 
-# --- Publish chunks ---
+# --- Publish chunks to MQTT only ---
 for i, chunk in enumerate(chunks, start=1):
-    # Export chunk to temporary WAV file
-    with tempfile.NamedTemporaryFile(suffix=".wav", prefix=f"chunk_{i}_", delete=False) as tmpfile:
-        chunk.export(tmpfile.name, format="wav")
+    with tempfile.NamedTemporaryFile(suffix=".mp3", prefix=f"chunk_{i}_", delete=False) as tmpfile:
+        chunk.export(tmpfile.name, format="mp3")
         temp_path = tmpfile.name
 
-    # Read bytes
     with open(temp_path, "rb") as f:
         audio_bytes = f.read()
 
-    # Encode Base64
     audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
 
     payload = {
@@ -73,21 +53,12 @@ for i, chunk in enumerate(chunks, start=1):
         "audio_base64": audio_b64
     }
 
-    # Publish once
     client.publish(topic, json.dumps(payload))
     print(f"[CHUNK {i}] Published to MQTT")
-
-    print(f"[CHUNK {i}] audio published")
-
     os.remove(temp_path)
-    time.sleep(0.5)  # Simulate real-time streaming
+    time.sleep(0.5)
 
-# --- End session ---
-session.end()
-print(f"[SIMULATION] Session ended: duration={session.duration_sec}s")
+print(f"[SIMULATION] Session ended (MQTT only)")
 
-print("[SIMULATION] Session persisted to DB")
-
-# Stop MQTT loop
 client.loop_stop()
 client.disconnect()
