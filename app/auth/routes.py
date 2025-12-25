@@ -44,6 +44,4 @@ def logout():
 
 @auth_bp.route("/request-access")
 def request_access():
-    # Tidak menyimpan apa-apa di database
-    # Hanya tampilkan halaman informasi atau instruksi
     return render_template("request_access.html")
