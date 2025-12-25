@@ -1,39 +1,20 @@
+# app/services/sop_engine.py
 from app.models.sop_service import SOPService
 from app.models.sop_step import SOPStep
 from app.extensions import db
 
-# deprecated function
-def load_sop(service_name):
-    sop = SOPService.query.filter_by(service_name=service_name).first()
-    if not sop:
-        return []
 
-    steps = (
-        SOPStep.query
-        .filter_by(service_id=sop.service_id)
-        .order_by(SOPStep.step_order)
-        .all()
-    )
-
-    return [
-        {
-            "step_id": step.step_id,
-            "order": step.step_order,
-            "description": step.description,
-            "checked": False,
-            "timestamp": None
-        }
-        for step in steps
-    ]
-
-def load_sop_by_service_name(service_name: str):
+def load_sop_by_service_id(service_id: str):
     """
-    Load SOP and its steps from DB using service_name
+    Load SOP and steps using service_id (PRIMARY, SAFE METHOD)
     """
+
+    if not service_id:
+        return None
 
     service = (
         db.session.query(SOPService)
-        .filter_by(service_name=service_name)
+        .filter_by(service_id=service_id)
         .first()
     )
 
