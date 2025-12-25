@@ -2,6 +2,7 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
+print(f"DEBUG: URI is {os.getenv('DATABASE_URI')}")
 
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY")

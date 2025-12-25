@@ -17,3 +17,4 @@ def debug_user():
         "user_id": getattr(current_user, "user_id", None),
         "role_id": getattr(current_user, "role_id", None)
     }
+
