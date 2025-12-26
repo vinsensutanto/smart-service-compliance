@@ -21,6 +21,8 @@ class User(UserMixin, db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    role = db.relationship("Role", backref="users")
+    
     __table_args__ = (
         CheckConstraint("user_id REGEXP '^US[0-9]{4}$'", name="chk_user_id"),
     )

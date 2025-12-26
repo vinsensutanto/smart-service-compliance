@@ -4,7 +4,6 @@ from app.services.session_manager import active_sessions
 from app.models.service_checklist import ServiceChecklist
 from app.models.service_record import ServiceRecord
 from app.services.sop_engine import load_sop
-from app.models.service_checklist import ServiceChecklist
 
 @socketio.on('checklist_update')
 def handle_checklist_update(data):
@@ -13,31 +12,38 @@ def handle_checklist_update(data):
     checked = data.get("checked", False)
     timestamp = data.get("timestamp") or datetime.now().strftime("%Y-%m-%d %H:%M")
 
-    # ---------------------------
-    # 1️⃣ Update in-memory session
-    # ---------------------------
+    # 1. Cari session di memori
     session = next((s for s in active_sessions.values() if s.session_id == session_id), None)
+    
     if session:
+        # 2. Update status checklist di memori
         for step in session.checklist:
             if step["step_id"] == step_id:
                 step["checked"] = checked
                 step["checked_at"] = timestamp
                 break
 
-        # Emit updated checklist to all connected UIs
-        socketio.emit("sop_update", {"session_id": session_id, "checklist": session.checklist})
+        # 3. Emit data terbaru ke Dashboard
+        socketio.emit("sop_update", {
+            "session_id": session_id, 
+            "service": session.service_detected,
+            "confidence": session.confidence,
+            "sop": session.checklist
+        })
 
-    service_record = db.session.query(ServiceRecord)\
-        .filter_by(service_record_id=session.service_record_id)\
-        .first()
-    if service_record:
-        sc = db.session.query(ServiceChecklist)\
-            .filter_by(service_record_id=service_record.service_record_id, step_id=step_id)\
+        # 4. Update Database (Sekarang aman di dalam blok 'if session')
+        service_record = db.session.query(ServiceRecord)\
+            .filter_by(service_record_id=session.service_record_id)\
             .first()
-        if sc:
-            sc.is_checked = checked
-            sc.checked_at = timestamp
-            db.session.commit()
+            
+        if service_record:
+            sc = db.session.query(ServiceChecklist)\
+                .filter_by(service_record_id=service_record.service_record_id, step_id=step_id)\
+                .first()
+            if sc:
+                sc.is_checked = checked
+                sc.checked_at = timestamp
+                db.session.commit()
 
 def initialize_checklist(session_id, service_record_id, service_key):
     steps = load_sop(service_key)
@@ -61,3 +67,11 @@ def initialize_checklist(session_id, service_record_id, service_key):
     
     db.session.commit()
     active_sessions[session_id].checklist = checklist
+    
+    # EMIT OTOMATIS: Agar Dashboard langsung terisi saat AI mengunci layanan
+    socketio.emit("sop_update", {
+        "session_id": session_id,
+        "service": active_sessions[session_id].service_detected,
+        "confidence": active_sessions[session_id].confidence,
+        "sop": active_sessions[session_id].checklist
+    })

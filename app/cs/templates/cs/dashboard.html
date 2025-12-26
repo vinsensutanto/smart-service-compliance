@@ -1,0 +1,437 @@
+{% extends "layouts/app.html" %} {% block content %}
+<style>
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+    background-color: #f8f9fa;
+  }
+  .dashboard-wrapper {
+    height: calc(100vh - 100px);
+    display: flex;
+    flex-direction: column;
+  }
+  .sop-card-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    max-height: 650px;
+    border-radius: 15px;
+    background: white;
+    overflow: hidden;
+  }
+  .sop-scroll-area {
+    flex: 1;
+    overflow-y: auto;
+    background-color: #fcfcfc;
+  }
+  .sop-scroll-area::-webkit-scrollbar {
+    width: 6px;
+  }
+  .sop-scroll-area::-webkit-scrollbar-thumb {
+    background: #e0e0e0;
+    border-radius: 10px;
+  }
+
+  .list-group-item {
+    padding: 1rem 1.25rem !important;
+    border-left: 4px solid #f0f0f0;
+    border-bottom: 1px solid #f1f1f1 !important;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    transition: 0.2s;
+  }
+  .list-group-item.completed {
+    border-left-color: #198754;
+    background-color: #f8fffb;
+  }
+
+  .step-circle {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: bold;
+    border-radius: 50%;
+    background: #f0f0f0;
+    color: #6c757d;
+    margin-top: 2px;
+  }
+  .completed .step-circle {
+    background: #198754;
+    color: white;
+  }
+  .sop-description {
+    flex-grow: 1;
+    word-break: break-word;
+    line-height: 1.4;
+  }
+  .sop-checkbox {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    margin-top: 4px;
+    cursor: pointer;
+  }
+
+  .animate-pulse {
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+  }
+</style>
+
+<div class="container py-3 dashboard-wrapper">
+  {# HEADER #}
+  <div class="row align-items-center mb-3 flex-shrink-0">
+    <div class="col-md-7">
+      <h2 class="fw-bold text-dark mb-1">Compliance Assistant</h2>
+      <p class="text-muted small mb-0">
+        Logged in:
+        <span class="fw-bold text-primary">{{ current_user.name }}</span> |
+        Location:
+        <span class="badge bg-light text-primary border"
+          >{{ workstation.location if workstation else 'Front Desk' }}</span
+        >
+      </p>
+    </div>
+    <div class="col-md-5 text-md-end" id="session-indicator">
+      <span class="badge bg-light text-secondary border p-2 shadow-sm">
+        <i class="bi bi-broadcast me-1"></i> WAITING FOR VOICE TRIGGER
+      </span>
+    </div>
+  </div>
+
+  <div class="row flex-grow-1 overflow-hidden">
+    {# LEFT PANEL #}
+    <div class="col-md-8 h-100">
+      <div class="card border-0 shadow-sm sop-card-container">
+        <div
+          class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center flex-shrink-0"
+        >
+          <h5 class="fw-bold mb-0 text-dark">Standard Operating Procedure</h5>
+          <span id="step-count" class="badge bg-dark">0 Steps</span>
+        </div>
+
+        <div class="card-body p-0 sop-scroll-area">
+          <div id="sop-placeholder" class="text-center py-5">
+            <i class="bi bi-mic-fill display-1 text-light"></i>
+            <p class="text-muted mt-3">
+              Listening for conversation to start...
+            </p>
+          </div>
+          <ul
+            id="sop-list-container"
+            class="list-group list-group-flush {% if not active_session %}d-none{% endif %}"
+          >
+            {% if active_session %} {% for item in active_session.checklist %}
+            <li
+              class="list-group-item {% if item.checked %}completed{% endif %}"
+            >
+              <div class="step-circle">{{ loop.index }}</div>
+              <div class="sop-description">
+                <p class="mb-0 small">{{ item.description }}</p>
+              </div>
+              <input
+                class="form-check-input sop-checkbox"
+                type="checkbox"
+                {%
+                if
+                item.checked
+                %}checked{%
+                endif
+                %}
+                onchange="toggleStep('{{ item.step_id }}', this.checked)"
+              />
+            </li>
+            {% endfor %} {% endif %}
+          </ul>
+        </div>
+
+        {# FOOTER #}
+        <div
+          id="action-footer"
+          class="card-footer bg-white border-top p-3 d-none flex-shrink-0"
+        >
+          <button
+            id="main-end-btn"
+            class="btn btn-outline-danger btn-lg w-100 fw-bold opacity-50"
+            onclick="handleEndSession()"
+            disabled
+          >
+            <i class="bi bi-stop-circle me-2"></i> Stop Session Manually
+          </button>
+          <small
+            id="btn-hint"
+            class="text-muted d-block text-center mt-2"
+            style="font-size: 0.7rem"
+          >
+            Finish all steps above to enable manual stop.
+          </small>
+        </div>
+      </div>
+    </div>
+
+    {# RIGHT PANEL #}
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm mb-3" style="border-radius: 15px">
+        <div class="card-body p-4 text-center">
+          <h6 class="text-secondary fw-bold small text-uppercase mb-4">
+            Detection Accuracy
+          </h6>
+          <div
+            id="ai-waiting"
+            class="{% if active_session %}d-none{% else %}py-4{% endif %}"
+          >
+            <div
+              class="spinner-border spinner-border-sm text-primary mb-2"
+            ></div>
+            <p class="text-muted small italic">Analyzing interaction...</p>
+          </div>
+          <div
+            id="ai-detected"
+            class="{% if active_session %}d-block{% else %}d-none{% endif %} animate-pulse"
+          >
+            <i
+              class="bi bi-mic-fill text-primary mb-3"
+              style="font-size: 2.5rem"
+            ></i>
+            <h5 class="fw-bold mb-1" id="service-name-text">
+              {{ active_session.service_detected.upper() if active_session else
+              '---' }}
+            </h5>
+            <span
+              id="accuracy-val"
+              class="badge bg-info text-white px-3 py-2 rounded-pill mt-2 small"
+            >
+              Accuracy: {{ (active_session.confidence * 100)|round(1) if
+              active_session else 0 }}%
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# MODAL: MANUAL TERMINATION #}
+<div class="modal fade" id="forceEndModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow" style="border-radius: 16px">
+      <div class="modal-header border-0">
+        <h5 class="modal-title fw-bold text-danger">Stop Session?</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small">
+          The system usually stops automatically. If you need to stop it
+          manually, please tell us why:
+        </p>
+        <div class="mb-3">
+          <label class="form-label fw-semibold small"
+            >Reason for Stopping</label
+          >
+          <select
+            class="form-select form-select-sm mb-2"
+            id="reason-select"
+            onchange="toggleOtherNote()"
+          >
+            <option value="System Error / AI not responding">
+              System Error / AI not responding
+            </option>
+            <option value="Customer cancelled or left early">
+              Customer cancelled or left early
+            </option>
+            <option value="Staff forgot to finish session">
+              Staff forgot / Human error
+            </option>
+            <option value="other">Other (Please specify below)</option>
+          </select>
+
+          <div id="other-note-container" class="d-none">
+            <textarea
+              class="form-control"
+              id="force-end-note"
+              rows="2"
+              placeholder="Describe the reason here..."
+            ></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer border-0">
+        <button class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">
+          Cancel
+        </button>
+        <button
+          class="btn btn-danger fw-bold rounded-pill px-4"
+          onclick="submitManualEnd()"
+        >
+          Stop Now
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+<script>
+  const socket = io();
+  let currentSessionId = "{{ active_session.session_id if active_session else '' }}";
+  // Jika ada sesi aktif, jalankan fungsi pendukung UI
+  {% if active_session %}
+  document.addEventListener("DOMContentLoaded", () => {
+      updateButtonState(); // Biarkan tombol stop ter-update statusnya
+  });
+  {% endif %}
+  /* 1. SINYAL END DARI BACKEND (Gunakan komentar JS biasa agar Jinja tidak error) */
+  /*
+  socket.on("session_terminated", (data) => {
+    const aiPanel = document.getElementById("ai-detected");
+    aiPanel.innerHTML = `<div class="text-success"><i class="bi bi-check-circle-fill" style="font-size: 3rem"></i><h4 class="fw-bold mt-2">Saved!</h4><p class="small">Session closed by system</p></div>`;
+    setTimeout(() => { location.reload(); }, 3000);
+  });
+  */
+
+  socket.on("sop_update", (data) => {
+    updateUI(data);
+  });
+
+  function updateUI(payload) {
+    // Karena Backend mengirim 'sop', kita cek itu dulu
+    if (!payload.sop || payload.sop.length === 0) return;
+
+    // MENGGANTI: dari payload.service_record_id menjadi payload.session_id
+    // Sesuai dengan socketio.emit("sop_update", {"session_id": ...}) di Backend
+    currentSessionId = payload.session_id;
+
+    // Update Indikator di Header
+    document.getElementById("session-indicator").innerHTML = `
+      <span class="badge bg-success p-2 shadow-sm animate-pulse">
+        <i class="bi bi-record-circle-fill me-1"></i> ACTIVE: ${payload.session_id}
+      </span>`;
+
+    // Sembunyikan placeholder, tampilkan panel deteksi
+    document.getElementById("ai-waiting").classList.add("d-none");
+    document.getElementById("ai-detected").classList.remove("d-none");
+
+    // Gunakan 'service' sesuai emit dari Backend
+    document.getElementById("service-name-text").innerText = payload.service
+      ? payload.service.toUpperCase()
+      : "DETECTING...";
+    document.getElementById("accuracy-val").innerText = `Accuracy: ${(
+      payload.confidence * 100
+    ).toFixed(1)}%`;
+
+    // Render List SOP
+    const list = document.getElementById("sop-list-container");
+    document.getElementById("sop-placeholder").classList.add("d-none");
+    list.classList.remove("d-none");
+    list.innerHTML = "";
+    document.getElementById("step-count").innerText =
+      payload.sop.length + " Steps";
+
+    payload.sop.forEach((item, index) => {
+      const isChecked = item.checked;
+      list.innerHTML += `
+        <li class="list-group-item ${isChecked ? "completed" : ""}">
+          <div class="step-circle">${index + 1}</div>
+          <div class="sop-description">
+            <p class="mb-0 small ${isChecked ? "text-success" : "text-dark"}">${
+        item.description
+      }</p>
+          </div>
+          <input class="form-check-input sop-checkbox" type="checkbox" style="width:20px;height:20px;"
+                 ${isChecked ? "checked" : ""} onchange="toggleStep('${
+        item.step_id
+      }', this.checked)">
+        </li>`;
+    });
+
+    document.getElementById("action-footer").classList.remove("d-none");
+    updateButtonState();
+  }
+
+  function toggleStep(stepId, isChecked) {
+    if (!currentSessionId) return;
+    socket.emit("checklist_update", {
+      session_id: currentSessionId,
+      step_id: stepId,
+      checked: isChecked,
+    });
+    setTimeout(updateButtonState, 100);
+  }
+
+  function updateButtonState() {
+    const total = document.querySelectorAll(".sop-checkbox").length;
+    const checked = document.querySelectorAll(".sop-checkbox:checked").length;
+    const btn = document.getElementById("main-end-btn");
+    if (total > 0 && total === checked) {
+      btn.disabled = false;
+      btn.classList.replace("btn-outline-danger", "btn-danger");
+      btn.classList.remove("opacity-50");
+    } else {
+      btn.disabled = true;
+      btn.classList.replace("btn-danger", "btn-outline-danger");
+      btn.classList.add("opacity-50");
+    }
+  }
+
+  function handleEndSession() {
+    new bootstrap.Modal(document.getElementById("forceEndModal")).show();
+  }
+
+  function toggleOtherNote() {
+    const select = document.getElementById("reason-select");
+    const container = document.getElementById("other-note-container");
+    container.classList.toggle("d-none", select.value !== "other");
+  }
+
+  async function submitManualEnd() {
+    const selectElement = document.getElementById("reason-select");
+    const noteElement = document.getElementById("force-end-note");
+    let finalReasonValue = "";
+
+    if (selectElement.value === "other") {
+      finalReasonValue = noteElement.value.trim();
+      if (!finalReasonValue) {
+        alert("Please describe your reason in the text box.");
+        return;
+      }
+    } else {
+      finalReasonValue = selectElement.value;
+    }
+
+    const payload = { reason: finalReasonValue, is_normal_flow: 0 };
+    console.log("Payload sent to API:", payload);
+
+    /* TEMAN BACKEND: Endpoint POST /api/service/force-end/<id>
+    try {
+      await fetch(`/api/service/force-end/${currentSessionId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      location.reload();
+    } catch (e) { console.error(e); }
+    */
+
+    alert(`Manual Stop Confirmed.\nReason: ${finalReasonValue}`);
+    location.reload();
+  }
+</script>
+{% endblock %}
