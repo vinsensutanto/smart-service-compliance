@@ -6,6 +6,8 @@ import os
 from app.services.service_detector import detect_service
 from app.services.sop_engine import load_sop_by_service_id
 from app.models.service_checklist import ServiceChecklist
+from app.models.service_record import ServiceRecord
+from app.extensions import db
 from app.services.whisper_model import get_whisper_model
 
 service_bp = Blueprint("service", __name__)
@@ -80,7 +82,19 @@ def get_checklist(service_record_id):
 # =====================================================
 @service_bp.route("/page/checklist/<service_record_id>")
 def checklist_page(service_record_id):
+    record = db.session.query(ServiceRecord).get(service_record_id)
+    if not record:
+        return "ServiceRecord not found", 404
+
+    # Fetch SOP steps for this service
+    from app.models.sop_step import SOPStep  # make sure this model exists
+    sop_steps = db.session.query(SOPStep)\
+        .filter_by(service_id=record.service_id)\
+        .order_by(SOPStep.step_number)\
+        .all()
+
     return render_template(
         "checklist.html",
-        service_record_id=service_record_id
+        service_record_id=service_record_id,
+        sop_steps=sop_steps
     )

@@ -1,29 +1,43 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Checklist {{ session_id }}</title>
+  <title>Checklist</title>
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 </head>
 <body>
-    <h1>Checklist for Session {{ session_id }}</h1>
-    <ul id="checklist"></ul>
+  <h2>Checklist for Service Record {{ service_record_id }}</h2>
 
-    <script>
-        const sessionId = "{{ session_id }}";
-        const checklistContainer = document.getElementById("checklist");
+  <ul id="checklist">
+    {% for step in sop_steps %}
+      <li>
+        <input type="checkbox" id="{{ step.step_id }}" data-step="{{ step.step_id }}">
+        {{ step.step_description }}
+      </li>
+    {% endfor %}
+  </ul>
 
-        fetch(`/api/checklist/{{ session_id }}`)
-            .then(res => res.json())
-            .then(data => {
-                data.forEach(item => {
-                    const li = document.createElement("li");
-                    li.textContent = item.item_name; // adjust according to your model
-                    checklistContainer.appendChild(li);
-                });
-            })
-            .catch(err => {
-                console.error("Failed to load checklist:", err);
-                checklistContainer.textContent = "No checklist found.";
-            });
-    </script>
+  <script>
+    const socket = io(); // connect to Flask-SocketIO
+
+    document.querySelectorAll("#checklist input[type=checkbox]").forEach(checkbox => {
+      checkbox.addEventListener("change", (e) => {
+        const step_id = e.target.dataset.step;
+        const checked = e.target.checked;
+        const session_id = "{{ service_record_id }}";  // using service_record_id as session_id
+
+        socket.emit("checklist_update", {
+          session_id: session_id,
+          step_id: step_id,
+          checked: checked,
+          timestamp: new Date().toISOString()
+        });
+      });
+    });
+
+    // Optional: listen to server updates if needed
+    socket.on("sop_update", (data) => {
+      console.log("Checklist updated:", data);
+    });
+  </script>
 </body>
 </html>
