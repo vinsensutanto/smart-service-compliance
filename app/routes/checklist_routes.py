@@ -3,6 +3,8 @@ from app.extensions import socketio, db
 from app.services.session_manager import active_sessions
 from app.models.service_checklist import ServiceChecklist
 from app.models.service_record import ServiceRecord
+from app.services.sop_engine import load_sop
+from app.models.service_checklist import ServiceChecklist
 
 @socketio.on('checklist_update')
 def handle_checklist_update(data):
@@ -25,12 +27,8 @@ def handle_checklist_update(data):
         # Emit updated checklist to all connected UIs
         socketio.emit("sop_update", {"session_id": session_id, "checklist": session.checklist})
 
-    # ---------------------------
-    # 2️⃣ Persist to DB (optional real-time)
-    # ---------------------------
-    # If session has already a ServiceRecord in DB
     service_record = db.session.query(ServiceRecord)\
-        .filter_by(service_record_id=session_id)\
+        .filter_by(service_record_id=session.service_record_id)\
         .first()
     if service_record:
         sc = db.session.query(ServiceChecklist)\
@@ -40,3 +38,26 @@ def handle_checklist_update(data):
             sc.is_checked = checked
             sc.checked_at = timestamp
             db.session.commit()
+
+def initialize_checklist(session_id, service_record_id, service_key):
+    steps = load_sop(service_key)
+    checklist = []
+    
+    for idx, step in enumerate(steps, start=1):
+        step_id = f"{service_record_id}_S{idx:02d}"
+        sc = ServiceChecklist(
+            service_record_id=service_record_id,
+            step_id=step_id,
+            description=step,
+            is_checked=False
+        )
+        db.session.add(sc)
+        checklist.append({
+            "step_id": step_id,
+            "description": step,
+            "checked": False,
+            "checked_at": None
+        })
+    
+    db.session.commit()
+    active_sessions[session_id].checklist = checklist

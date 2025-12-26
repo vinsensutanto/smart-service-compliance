@@ -1,100 +1,95 @@
 # app/services/session_manager.py
-from datetime import datetime
-from scripts.stt_whisper import transcribe_chunk
+
+from datetime import datetime, timezone
+from typing import Dict, Optional
+
 from app.extensions import db
-from app.models.service_chunk import ServiceChunk
-from sqlalchemy import func, cast, Integer
+from app.models.service_record import ServiceRecord
 
-# In-memory session registry
-active_sessions = {}
+# =========================================
+# In-memory active session registry
+# session_id -> service_record_id
+# =========================================
+active_sessions: Dict[str, str] = {}
 
-class Session:
-    def __init__(self, session_id, user_id, workstation_id):
-        self.session_id = session_id
-        self.user_id = user_id
-        self.workstation_id = workstation_id
 
-        self.start_time = datetime.now()
-        self.end_time = None
+# =========================================
+# Session lifecycle helpers
+# =========================================
+def start_session(
+    session_id: str,
+    workstation_id: str,
+    user_id: Optional[str] = None
+) -> str:
+    """
+    Start a new service session.
+    Creates ServiceRecord immediately.
+    """
 
-        self.text = ""
-        self.service_detected = None
-        self.confidence = None
+    if session_id in active_sessions:
+        return active_sessions[session_id]
 
-        self.checklist = []
-        self.audio_chunks = []
+    last_record = (
+        db.session.query(ServiceRecord)
+        .order_by(ServiceRecord.service_record_id.desc())
+        .first()
+    )
 
-    def add_audio(self, chunk):
-        """Add chunk and run STT immediately."""
-        if chunk:
-            self.audio_chunks.append(chunk)
-            self.process_stt(chunk)
+    new_id = ServiceRecord.generate_id(
+        last_record.service_record_id if last_record else None
+    )
 
-    def process_stt(self, chunk):
-        """Incrementally process audio chunk to text using Whisper."""
-        try:
-            text = transcribe_chunk(chunk)
-            if text:
-                self.text += " " + text
-        except Exception as e:
-            print(f"[STT ERROR] {self.session_id}: {e}")
+    record = ServiceRecord(
+        service_record_id=new_id,
+        workstation_id=workstation_id,
+        user_id=user_id,
+        start_time=datetime.now(timezone.utc)
+    )
 
-    def end(self):
-        self.end_time = datetime.now()
+    db.session.add(record)
+    db.session.commit()
 
-    @property
-    def duration_sec(self):
-        if not self.end_time:
-            return 0
-        return int((self.end_time - self.start_time).total_seconds())
+    active_sessions[session_id] = new_id
 
-    def serialize(self):
-        return {
-            "session_id": self.session_id,
-            "user_id": self.user_id,
-            "workstation_id": self.workstation_id,
-            "start_time": self.start_time.strftime("%Y-%m-%d %H:%M"),
-            "end_time": self.end_time.strftime("%Y-%m-%d %H:%M") if self.end_time else None,
-            "duration": self.duration_sec,
-            "service_detected": self.service_detected,
-            "confidence": self.confidence,
-            "text": self.text.strip(),
-            "checklist": self.checklist,
-            "audio_chunks": len(self.audio_chunks),
-        }
+    print(
+        f"[SESSION] Started session={session_id} "
+        f"service_record_id={new_id} workstation={workstation_id}"
+    )
 
-    def persist_to_db(self):
-        """Save session text into service_chunks table."""
-        if not self.text.strip():
-            return
+    return new_id
 
-        try:
-            # Get last numeric chunk_id
-            last_chunk = (
-                ServiceChunk.query
-                .order_by(cast(func.substr(ServiceChunk.chunk_id, 3), Integer).desc())
-                .first()
-            )
-            last_id = last_chunk.chunk_id if last_chunk else None
 
-            # Split text into chunks of 255 characters
-            chunks = [self.text[i:i+255] for i in range(0, len(self.text), 255)]
+def end_session(session_id: str):
+    """
+    End a session and close ServiceRecord.
+    """
 
-            for chunk_text in chunks:
-                chunk_id = ServiceChunk.generate_id(last_id)
-                last_id = chunk_id
+    service_record_id = active_sessions.pop(session_id, None)
+    if not service_record_id:
+        return
 
-                new_chunk = ServiceChunk(
-                    chunk_id=chunk_id,
-                    service_record_id=self.session_id,
-                    text_chunk=chunk_text,
-                    created_at=datetime.now()
-                )
-                db.session.add(new_chunk)
+    record = (
+        db.session.query(ServiceRecord)
+        .filter_by(service_record_id=service_record_id)
+        .first()
+    )
 
-            db.session.commit()
-            print(f"[DB] Saved {len(chunks)} chunk(s) for session {self.session_id}")
+    if record:
+        record.end_time = datetime.now(timezone.utc)
+        db.session.commit()
 
-        except Exception as e:
-            db.session.rollback()
-            print(f"[DB ERROR] Failed to save session {self.session_id}: {e}")
+        print(
+            f"[SESSION] Ended session={session_id} "
+            f"service_record_id={service_record_id}"
+        )
+
+
+def get_service_record_id(session_id: str) -> Optional[str]:
+    """
+    Resolve session_id → service_record_id
+    """
+    return active_sessions.get(session_id)
+
+
+def is_active(session_id: str) -> bool:
+    return session_id in active_sessions

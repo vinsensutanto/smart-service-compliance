@@ -1,86 +1,125 @@
 # app/services/session_store.py
-from datetime import datetime
+
+from datetime import datetime, timezone
+from sqlalchemy import func
+
 from app.extensions import db
 from app.models.service_record import ServiceRecord
 from app.models.service_chunk import ServiceChunk
 from app.models.service_checklist import ServiceChecklist
 
-# ----------------------------
-# ID Generators
-# ----------------------------
-def generate_service_record_id():
-    last = db.session.query(ServiceRecord).order_by(ServiceRecord.service_record_id.desc()).first()
-    if not last:
-        return "SR0001"
-    last_num = int(last.service_record_id[2:])
-    return f"SR{last_num + 1:04d}"[:6]
 
-
-def generate_chunk_id():
-    last = db.session.query(ServiceChunk).order_by(ServiceChunk.chunk_id.desc()).first()
-    if not last:
-        return "CH0001"
-    last_num = int(last.chunk_id[2:])
-    return f"CH{last_num + 1:04d}"[:6]
-
-
+# =========================================
+# ID generators (KEEP)
+# =========================================
 def generate_checklist_id():
-    last = db.session.query(ServiceChecklist).order_by(ServiceChecklist.checklist_id.desc()).first()
+    last = (
+        db.session.query(ServiceChecklist)
+        .order_by(ServiceChecklist.checklist_id.desc())
+        .first()
+    )
     if not last:
         return "CE0001"
-    last_num = int(last.checklist_id[2:])
-    return f"CE{last_num + 1:04d}"[:6]
+    return f"CE{int(last.checklist_id[2:]) + 1:04d}"
 
 
-# ----------------------------
-# Persist session
-# ----------------------------
-def persist_session(session):
-    # 1️⃣ Save ServiceRecord
-    service_record_id = generate_service_record_id()
-    record = ServiceRecord(
-        service_record_id=service_record_id,
-        workstation_id=session.workstation_id[:6].upper() if session.workstation_id else "RP01",
-        user_id=session.user_id[:6] if session.user_id else "unknow",
-        service_detected=session.service_detected,
-        confidence=session.confidence,
-        start_time=session.start_time,  # <-- fixed
-        end_time=session.end_time,      # <-- fixed
-        duration=session.duration_sec,
-        text=session.text.strip(),
-        is_normal_flow=all([c.get("checked", False) for c in session.checklist]),
-        reason=None,
-        audio_path=f"local/aud/{service_record_id}",
+# =========================================
+# Session finalization
+# =========================================
+def finalize_session(service_record_id: str):
+    """
+    Close session:
+    - set end_time
+    - calculate duration
+    - aggregate transcript
+    """
+
+    record = (
+        db.session.query(ServiceRecord)
+        .filter_by(service_record_id=service_record_id)
+        .first()
     )
-    db.session.add(record)
+    if not record:
+        raise RuntimeError("ServiceRecord not found")
+
+    if record.end_time:
+        return  # already finalized
+
+    now = datetime.now(timezone.utc)
+    record.end_time = now
+
+    if record.start_time:
+        record.duration = int(
+            (now - record.start_time).total_seconds()
+        )
+
+    # 🔹 aggregate transcript from chunks
+    chunks = (
+        db.session.query(ServiceChunk.text_chunk)
+        .filter_by(service_record_id=service_record_id)
+        .order_by(ServiceChunk.created_at.asc())
+        .all()
+    )
+
+    record.text = " ".join(c.text_chunk for c in chunks)
+
     db.session.commit()
 
-    # 2️⃣ Save ServiceChunks
-    for chunk_text in session.audio_chunks:
-        chunk_id = generate_chunk_id()
-        db.session.add(ServiceChunk(
-            chunk_id=chunk_id,
-            service_record_id=service_record_id,
-            text_chunk=chunk_text,
-            created_at=datetime.now()
-        ))
+    print(
+        f"[SESSION FINALIZED] {service_record_id} "
+        f"duration={record.duration}s chunks={len(chunks)}"
+    )
 
-    # 3️⃣ Save ServiceChecklists
-    for step in session.checklist:
-        checklist_id = generate_checklist_id()
+
+# =========================================
+# Persist checklist (from UI)
+# =========================================
+def save_checklist(
+    service_record_id: str,
+    checklist_items: list[dict]
+):
+    """
+    checklist_items example:
+    [
+        {
+            "step_id": "ST0001",
+            "checked": true,
+            "checked_at": "2025-12-25T14:33:00Z"
+        }
+    ]
+    """
+
+    record = (
+        db.session.query(ServiceRecord)
+        .filter_by(service_record_id=service_record_id)
+        .first()
+    )
+    if not record:
+        raise RuntimeError("ServiceRecord not found")
+
+    # clear old checklist (idempotent)
+    db.session.query(ServiceChecklist)\
+        .filter_by(service_record_id=service_record_id)\
+        .delete()
+
+    is_normal = True
+
+    for step in checklist_items:
+        if not step.get("checked", False):
+            is_normal = False
+
         db.session.add(ServiceChecklist(
-            checklist_id=checklist_id,
+            checklist_id=generate_checklist_id(),
             service_record_id=service_record_id,
             step_id=step["step_id"],
             is_checked=step.get("checked", False),
             checked_at=step.get("checked_at")
         ))
 
+    record.is_normal_flow = is_normal
     db.session.commit()
 
     print(
-        f"[SESSION SAVED] {service_record_id} | "
-        f"duration={session.duration_sec}s | "
-        f"chunks={len(session.audio_chunks)} | "
-        f"checklist={len(session.checklist)}"
+        f"[CHECKLIST SAVED] {service_record_id} "
+        f"steps={len(checklist_items)} normal={is_normal}"
     )
