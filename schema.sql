@@ -88,7 +88,7 @@ CREATE TABLE service_chunks (
     service_record_id VARCHAR(6),
     text_chunk VARCHAR(255),
     created_at TIMESTAMP NULL,
-    CONSTRAINT chk_chunk_id CHECK(chunk_id REGEXP '^CH[0-9]{4}$'),
+    CONSTRAINT chk_chunk_id CHECK(chunk_id REGEXP '^CU[0-9]{4}$'),
     CONSTRAINT fk_service_chunks_record_id
         FOREIGN KEY (service_record_id) REFERENCES service_records(service_record_id)
         ON UPDATE CASCADE ON DELETE CASCADE

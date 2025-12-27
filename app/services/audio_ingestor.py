@@ -1,280 +1,206 @@
-import os
+import base64
+import json
 import queue
 import tempfile
 import threading
-import json
-import base64
 from datetime import datetime, timezone
-from collections import defaultdict
 
 import paho.mqtt.client as mqtt
-import whisper
-import torch
 
 from app.extensions import db
 from app.models.service_chunk import ServiceChunk
 from app.models.service_record import ServiceRecord
-from app.services.service_detector import detect_service
-from app.models.workstation import Workstation
+from app.services.session_manager import get_active_session_by_rp
+from app.services.whisper_model import get_whisper_model
+from app.services.service_detector import detect_service, should_lock_service
+from app.services.sop_engine import load_sop_by_service_id
+from app.services.kws_event_handler import handle_kws_event
 
-# ===============================
-# GLOBAL STATE
-# ===============================
 
-SERVICE_KEY_TO_DB_ID = {
-    "ATM_REPLACEMENT": "SV0001",
-    "OPEN_ACCOUNT": "SV0002",
+# =====================================
+# CONFIG
+# =====================================
+MQTT_BROKER = "localhost"
+MQTT_PORT = 1883
+
+AUDIO_TOPIC = "rp/+/audio/stream"
+KWS_TOPIC = "rp/+/event/kws"
+
+audio_queue = queue.Queue()
+model = get_whisper_model()
+
+SERVICE_KEY_MAP = {
     "MBCA_REGISTRATION": "SV0003",
+    "OPEN_ACCOUNT": "SV0001",
+    "ATM_REPLACEMENT": "SV0002",
 }
 
 
-audio_queue = queue.Queue()
-
-# session_id -> service_record_id
-active_sessions = {}
-
-# service_record_id -> accumulated text
-session_text_buffer = {}
-
-# keyword hit counter per session
-SESSION_KEYWORD_COUNT = defaultdict(int)
-
-# prevent double start
-_ingestor_started = False
-
-
-# ===============================
-# WHISPER CONFIG
-# ===============================
-
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-DTYPE = torch.float16 if DEVICE == "cuda" else torch.float32
-
-print(f"[WHISPER] device={DEVICE}, dtype={DTYPE}")
-
-WHISPER_MODEL = whisper.load_model(
-    "base",
-    device=DEVICE
-)
-
-
-# ===============================
-# INGESTOR START
-# ===============================
-
-def start_ingestor(app, broker="localhost", port=1883):
-    global _ingestor_started
-    if _ingestor_started:
-        print("[INGESTOR] Already started, skipping")
+# =====================================
+# MQTT CALLBACK
+# =====================================
+def on_message(client, userdata, msg):
+    try:
+        payload = json.loads(msg.payload.decode())
+    except Exception as e:
+        print("[INGESTOR] Invalid JSON:", e)
         return
 
-    _ingestor_started = True
-    topic = "+/audio/stream"
+    parts = msg.topic.split("/")
+    if len(parts) < 4:
+        print("[INGESTOR] Invalid topic:", msg.topic)
+        return
 
-    # ===============================
-    # MQTT CALLBACKS
-    # ===============================
+    rp_id = parts[1].lower()
+    channel = parts[2]
+    event_type = parts[3]
 
-    def on_connect(client, userdata, flags, rc):
-        print(f"[INGESTOR] Connected to MQTT broker rc={rc}")
-        client.subscribe(topic)
-        print(f"[INGESTOR] Subscribed to topic: {topic}")
+    app = userdata["app"]   # ✅ THIS IS THE KEY FIX
 
-    def on_message(client, userdata, msg):
-        try:
-            payload = json.loads(msg.payload)
+    # -----------------------------
+    # KWS EVENT
+    # -----------------------------
+    if channel == "event" and event_type == "kws":
+        with app.app_context():
+            handle_kws_event(rp_id, payload)
+        return
 
-            audio_bytes = base64.b64decode(payload["audio_base64"])
-            chunk_number = payload.get("chunk_number", 0)
-
-            rp_id = msg.topic.split("/")[0]
-            session_id = payload.get("session_id", rp_id)
-
-            with app.app_context():
-                if session_id not in active_sessions:
-                    last = (
-                        db.session.query(ServiceRecord)
-                        .order_by(ServiceRecord.service_record_id.desc())
-                        .first()
-                    )
-
-                    new_id = ServiceRecord.generate_id(
-                        last.service_record_id if last else None
-                    )
-
-                    # cari workstation berdasarkan rpi_id
-                    workstation = (
-                        db.session.query(Workstation)
-                        .filter_by(rpi_id=rp_id)
-                        .first()
-                    )
-
-                    if not workstation:
-                        print(f"[INGESTOR] Unknown RP ID: {rp_id}")
-                        return  # stop processing this message
-
-                    record = ServiceRecord(
-                        service_record_id=new_id,
-                        workstation_id=workstation.workstation_id,  # WSxxxx
-                        start_time=datetime.now(timezone.utc),
-                        service_detected=None,
-                        service_id=None,
-                        confidence=None
-                    )
+    # -----------------------------
+    # AUDIO STREAM
+    # -----------------------------
+    if channel == "audio" and event_type == "stream":
+        audio_queue.put((rp_id, payload))
+        return
 
 
-                    db.session.add(record)
-                    db.session.commit()
-
-                    active_sessions[session_id] = new_id
-                    session_text_buffer[new_id] = ""
-
-                    print(f"[SESSION] New session {session_id} → {new_id}")
-
-                service_record_id = active_sessions[session_id]
-
-            audio_queue.put((service_record_id, chunk_number, audio_bytes))
-
-            print(
-                f"[INGESTOR] Queued chunk={chunk_number} "
-                f"SR={service_record_id} rp={rp_id}"
-            )
-
-        except Exception as e:
-            print(f"[INGESTOR] MQTT message error: {e}")
-
-    # ===============================
-    # AUDIO PROCESSOR THREAD
-    # ===============================
-
-    def process_audio_queue():
+# =====================================
+# AUDIO WORKER THREAD
+# =====================================
+def audio_worker(app):
+    with app.app_context():
         while True:
-            service_record_id, chunk_number, audio_bytes = audio_queue.get()
-            temp_path = None
-
+            rp_id, payload = audio_queue.get()
             try:
-                with tempfile.NamedTemporaryFile(
-                    suffix=".mp3",
-                    prefix="chunk_",
-                    delete=False
-                ) as tmp:
-                    tmp.write(audio_bytes)
-                    temp_path = tmp.name
-
-                result = WHISPER_MODEL.transcribe(
-                    temp_path,
-                    language="id",
-                    fp16=(DEVICE == "cuda"),
-                    verbose=False
-                )
-
-                text = result.get("text", "").strip()
-
-                if not text or len(text) < 3:
-                    continue
-
-                session_text_buffer[service_record_id] += " " + text
-                full_text = session_text_buffer[service_record_id].strip()
-
-                with app.app_context():
-                    record = (
-                        db.session.query(ServiceRecord)
-                        .filter_by(service_record_id=service_record_id)
-                        .first()
-                    )
-
-                    # ===== SERVICE DETECTION =====
-                    if record and not record.service_detected:
-                        if len(full_text.split()) >= 8:
-                            key, label, base_conf, keywords = detect_service(full_text)
-
-                            print(
-                                "[NLP]",
-                                "key=", key,
-                                "label=", label,
-                                "base_conf=", base_conf,
-                                "keywords=", keywords
-                            )
-
-                            if key:
-                                SESSION_KEYWORD_COUNT[service_record_id] += 1
-                                hits = SESSION_KEYWORD_COUNT[service_record_id]
-
-                                confidence = min(1.0, 0.5 + 0.15 * hits)
-
-                                print(
-                                    f"[NLP HIT] SR={service_record_id} "
-                                    f"hits={hits} confidence={confidence}"
-                                )
-
-                                if confidence >= 0.75:
-                                    record.service_detected = label
-                                    record.service_id = SERVICE_KEY_TO_DB_ID.get(key)
-                                    record.confidence = round(confidence, 2)
-
-                                    db.session.commit()
-                                    SESSION_KEYWORD_COUNT.pop(service_record_id, None)
-
-                                    print(
-                                        f"[SERVICE LOCKED] SR={service_record_id} "
-                                        f"{label} ({key}) conf={confidence}"
-                                    )
-
-                # ===== SAVE CHUNK =====
-                if len(text) > 255:
-                    text = text[:255]
-
-                with app.app_context():
-                    last_chunk = (
-                        db.session.query(ServiceChunk)
-                        .order_by(ServiceChunk.chunk_id.desc())
-                        .first()
-                    )
-
-                    chunk_id = ServiceChunk.generate_id(
-                        last_chunk.chunk_id if last_chunk else None
-                    )
-
-                    chunk = ServiceChunk(
-                        chunk_id=chunk_id,
-                        service_record_id=service_record_id,
-                        text_chunk=text,
-                        created_at=datetime.now(timezone.utc)
-                    )
-
-                    db.session.add(chunk)
-                    db.session.commit()
-
-                    print(
-                        f"[DB] Saved chunk {chunk_id} "
-                        f"SR={service_record_id}"
-                    )
-
+                process_audio_chunk(rp_id, payload)
             except Exception as e:
-                print(f"[INGESTOR] Processing error: {e}")
-
+                print("[INGESTOR] processing error:", e)
             finally:
-                if temp_path and os.path.exists(temp_path):
-                    os.remove(temp_path)
                 audio_queue.task_done()
 
-    # ===============================
-    # START THREADS
-    # ===============================
 
-    threading.Thread(
-        target=process_audio_queue,
-        daemon=True
-    ).start()
+# =====================================
+# CORE AUDIO PROCESSOR
+# =====================================
+def process_audio_chunk(rp_id: str, payload: dict):
+    db.session.remove()
+    sr_id = get_active_session_by_rp(rp_id)
+    if not sr_id:
+        print(f"[AUDIO] No active session for rp={rp_id}")
+        return
 
-    client = mqtt.Client()
-    client.on_connect = on_connect
+    chunk_number = payload.get("chunk_number")
+    audio_b64 = payload.get("audio_base64")
+
+    if not audio_b64:
+        print("[AUDIO] Missing audio_base64")
+        return
+
+    print(f"[AUDIO] queued SR={sr_id} rp={rp_id} chunk={chunk_number}")
+
+    # ---------------------------------
+    # Decode audio → temp mp3
+    # ---------------------------------
+    audio_bytes = base64.b64decode(audio_b64)
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
+        tmp.write(audio_bytes)
+        tmp_path = tmp.name
+
+    # ---------------------------------
+    # Speech-to-text
+    # ---------------------------------
+    result = model.transcribe(tmp_path, language="id", verbose=False)
+    text = result.get("text", "").strip()
+
+    if not text:
+        return
+
+    # ---------------------------------
+    # Append to service_records.text
+    # ---------------------------------
+    record = db.session.get(ServiceRecord, sr_id)
+    if not record:
+        print(f"[AUDIO] ServiceRecord not found: {sr_id}")
+        return
+
+    record.text = f"{record.text} {text}" if record.text else text
+    db.session.commit()
+
+    full_text = record.text
+
+    # ---------------------------------
+    # EARLY SERVICE DETECTION
+    # ---------------------------------
+    if not record.service_id:
+        service_key, label, confidence, hits = detect_service(full_text)
+
+        if service_key and should_lock_service(confidence):
+            service_id = SERVICE_KEY_MAP.get(service_key)
+            if service_id:
+                record.service_id = service_id
+                record.service_detected = label
+                record.confidence = confidence
+                db.session.commit()
+
+                load_sop_by_service_id(service_id)
+
+                print(
+                    f"[SERVICE LOCKED] SR={sr_id} "
+                    f"{label} conf={confidence}"
+                )
+
+    # ---------------------------------
+    # Save chunk audit
+    # ---------------------------------
+    last_chunk = (
+        db.session.query(ServiceChunk)
+        .order_by(ServiceChunk.chunk_id.desc())
+        .first()
+    )
+
+    chunk_id = ServiceChunk.generate_id(
+        last_chunk.chunk_id if last_chunk else None
+    )
+
+    chunk = ServiceChunk(
+        chunk_id=chunk_id,
+        service_record_id=sr_id,
+        text_chunk=text,
+        created_at=datetime.now(timezone.utc)
+    )
+
+    db.session.add(chunk)
+    db.session.commit()
+
+    print(f"[DB] chunk saved {chunk_id} SR={sr_id}")
+
+
+# =====================================
+# START INGESTOR
+# =====================================
+def start_ingestor(app):
+    client = mqtt.Client(userdata={"app": app})
     client.on_message = on_message
-    client.connect(broker, port, 60)
 
-    print("[INGESTOR] MQTT loop started")
+    client.connect(MQTT_BROKER, MQTT_PORT, 60)
+    client.subscribe(AUDIO_TOPIC)
+    client.subscribe(KWS_TOPIC)
 
     threading.Thread(
-        target=client.loop_forever,
+        target=audio_worker,
+        args=(app,),
         daemon=True
     ).start()
+
+    client.loop_start()
+
+    print("[INGESTOR] audio ingestor READY")

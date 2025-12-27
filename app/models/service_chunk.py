@@ -16,13 +16,13 @@ class ServiceChunk(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     __table_args__ = (
-        CheckConstraint("chunk_id REGEXP '^CH[0-9]{4}$'", name="chk_chunk_id"),
+        CheckConstraint("chunk_id REGEXP '^CU[0-9]{4}$'", name="chk_chunk_id"),
     )
 
     @staticmethod
     def generate_id(last_id=None):
         """
-        Generate a numeric chunk_id following CH0001, CH0002, etc.
+        Generate a numeric chunk_id following CU0001, CU0002, etc.
         Optionally pass last_id to increment.
         """
         if last_id:

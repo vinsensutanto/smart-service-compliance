@@ -24,7 +24,7 @@ def load_sop_by_service_id(service_id: str):
     steps = (
         db.session.query(SOPStep)
         .filter_by(service_id=service.service_id)
-        .order_by(SOPStep.step_order.asc())
+        .order_by(SOPStep.step_number.asc())
         .all()
     )
 
@@ -34,8 +34,8 @@ def load_sop_by_service_id(service_id: str):
         "steps": [
             {
                 "step_id": step.step_id,
-                "step_order": step.step_order,
-                "description": step.description,
+                "step_number": step.step_number,
+                "step_description": step.step_description,
                 "checked": False,
                 "timestamp": None
             }

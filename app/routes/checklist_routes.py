@@ -3,7 +3,8 @@ from app.extensions import socketio, db
 from app.services.session_manager import active_sessions
 from app.models.service_checklist import ServiceChecklist
 from app.models.service_record import ServiceRecord
-from app.services.sop_engine import load_sop
+from app.services.sop_engine import load_sop_by_service_id
+
 
 @socketio.on('checklist_update')
 def handle_checklist_update(data):
@@ -45,33 +46,35 @@ def handle_checklist_update(data):
                 sc.checked_at = timestamp
                 db.session.commit()
 
-def initialize_checklist(session_id, service_record_id, service_key):
-    steps = load_sop(service_key)
+def initialize_checklist(session_id, service_record_id, service_id):
+    sop = load_sop_by_service_id(service_id)
+    if not sop:
+        return
+
     checklist = []
-    
-    for idx, step in enumerate(steps, start=1):
-        step_id = f"{service_record_id}_S{idx:02d}"
+
+    for step in sop["steps"]:
         sc = ServiceChecklist(
             service_record_id=service_record_id,
-            step_id=step_id,
-            description=step,
+            step_id=step["step_id"],
+            description=step["step_description"],
             is_checked=False
         )
         db.session.add(sc)
+
         checklist.append({
-            "step_id": step_id,
-            "description": step,
+            "step_id": step["step_id"],
+            "description": step["step_description"],
             "checked": False,
             "checked_at": None
         })
-    
+
     db.session.commit()
     active_sessions[session_id].checklist = checklist
-    
-    # EMIT OTOMATIS: Agar Dashboard langsung terisi saat AI mengunci layanan
+
     socketio.emit("sop_update", {
         "session_id": session_id,
         "service": active_sessions[session_id].service_detected,
         "confidence": active_sessions[session_id].confidence,
-        "sop": active_sessions[session_id].checklist
+        "sop": checklist
     })

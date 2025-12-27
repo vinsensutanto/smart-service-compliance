@@ -1,95 +1,128 @@
 # app/services/session_manager.py
 
 from datetime import datetime, timezone
-from typing import Dict, Optional
+from typing import Optional
 
 from app.extensions import db
 from app.models.service_record import ServiceRecord
-
-# =========================================
-# In-memory active session registry
-# session_id -> service_record_id
-# =========================================
-active_sessions: Dict[str, str] = {}
+from app.models.workstation import Workstation
 
 
-# =========================================
-# Session lifecycle helpers
-# =========================================
 def start_session(
     session_id: str,
-    workstation_id: str,
-    user_id: Optional[str] = None
-) -> str:
-    """
-    Start a new service session.
-    Creates ServiceRecord immediately.
-    """
+    rp_id: str,
+    user_id: Optional[str] = None,
+    start_time=None
+) -> Optional[str]:
 
-    if session_id in active_sessions:
-        return active_sessions[session_id]
+    rp_id = rp_id.lower()
+    start_time = start_time or datetime.now(timezone.utc)
 
-    last_record = (
+    # resolve workstation
+    workstation = (
+        db.session.query(Workstation)
+        .filter_by(rpi_id=rp_id)
+        .first()
+    )
+
+    if not workstation:
+        print(f"[SESSION] Unknown rp_id={rp_id}")
+        return None
+
+    # prevent double active session per RP
+    active = (
+        db.session.query(ServiceRecord)
+        .filter(
+            ServiceRecord.workstation_id == workstation.workstation_id,
+            ServiceRecord.end_time.is_(None)
+        )
+        .first()
+    )
+
+    if active:
+        print(f"[SESSION] Already active SR={active.service_record_id}")
+        return active.service_record_id
+
+    last = (
         db.session.query(ServiceRecord)
         .order_by(ServiceRecord.service_record_id.desc())
         .first()
     )
 
     new_id = ServiceRecord.generate_id(
-        last_record.service_record_id if last_record else None
+        last.service_record_id if last else None
     )
 
     record = ServiceRecord(
         service_record_id=new_id,
-        workstation_id=workstation_id,
+        workstation_id=workstation.workstation_id,
         user_id=user_id,
-        start_time=datetime.now(timezone.utc)
+        start_time=start_time
     )
 
     db.session.add(record)
     db.session.commit()
 
-    active_sessions[session_id] = new_id
-
-    print(
-        f"[SESSION] Started session={session_id} "
-        f"service_record_id={new_id} workstation={workstation_id}"
-    )
+    print(f"[SESSION] Started SR={new_id} rp={rp_id}")
 
     return new_id
 
 
-def end_session(session_id: str):
-    """
-    End a session and close ServiceRecord.
-    """
+def end_session_by_rp(
+    rp_id: str,
+    end_time=None,
+    reason=None
+) -> Optional[str]:
 
-    service_record_id = active_sessions.pop(session_id, None)
-    if not service_record_id:
-        return
+    rp_id = rp_id.lower()
+    end_time = end_time or datetime.now(timezone.utc)
 
     record = (
         db.session.query(ServiceRecord)
-        .filter_by(service_record_id=service_record_id)
+        .select_from(ServiceRecord)
+        .join(
+            Workstation,
+            ServiceRecord.workstation_id == Workstation.workstation_id
+        )
+        .filter(
+            Workstation.rpi_id == rp_id,
+            ServiceRecord.end_time.is_(None)
+        )
+        .order_by(ServiceRecord.start_time.desc())
         .first()
     )
 
-    if record:
-        record.end_time = datetime.now(timezone.utc)
-        db.session.commit()
+    if not record:
+        print(f"[SESSION] No active session for rp={rp_id}")
+        return None
 
-        print(
-            f"[SESSION] Ended session={session_id} "
-            f"service_record_id={service_record_id}"
+    record.end_time = end_time
+    if reason:
+        record.reason = reason
+
+    db.session.commit()
+
+    print(f"[SESSION] Ended SR={record.service_record_id} rp={rp_id}")
+
+    return record.service_record_id
+
+
+def get_active_session_by_rp(rp_id: str) -> Optional[str]:
+    rp_id = rp_id.lower()
+
+    record = (
+        db.session.query(ServiceRecord)
+        .select_from(ServiceRecord)
+        .join(
+            Workstation,
+            ServiceRecord.workstation_id == Workstation.workstation_id
         )
+        .filter(
+            Workstation.rpi_id == rp_id,
+            ServiceRecord.end_time.is_(None)
+        )
+        .order_by(ServiceRecord.start_time.desc())
+        .first()
+    )
 
-
-def get_service_record_id(session_id: str) -> Optional[str]:
-    """
-    Resolve session_id → service_record_id
-    """
-    return active_sessions.get(session_id)
-
-
-def is_active(session_id: str) -> bool:
-    return session_id in active_sessions
+    return record.service_record_id if record else None

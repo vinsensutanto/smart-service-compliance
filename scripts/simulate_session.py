@@ -4,61 +4,125 @@ import json
 import base64
 import tempfile
 from datetime import datetime
+
 from pydub import AudioSegment
 from paho.mqtt import client as mqtt_client
 
-# --- Simulation Config ---
-rp_id = "RP0001"
-session_id = f"{datetime.now().strftime('%Y-%m-%d-%H:%M:%S')}-{rp_id}"
-audio_file = "data/audio/pendaftaranmbca_laki_tidakfasih.mp3"
-chunk_length_ms = 3000
-mqtt_broker = "localhost"
-mqtt_port = 1883
-topic = f"{rp_id}/audio/stream"
 
-print(f"[SIMULATION] Session started: {session_id}")
+# ======================================
+# CONFIG (MATCH INGESTOR)
+# ======================================
 
-# --- Load audio and split into chunks ---
-audio = AudioSegment.from_file(audio_file, format="mp3")
+RP_ID = "rp0001"   # LOWERCASE - IMPORTANT
+AUDIO_FILE = "data/audio/pendaftaranmbca_laki_tidakfasih.mp3"
+
+MQTT_BROKER = "localhost"
+MQTT_PORT = 1883
+
+TOPIC_AUDIO = f"rp/{RP_ID}/audio/stream"
+TOPIC_KWS = f"rp/{RP_ID}/event/kws"
+
+CHUNK_MS = 3000
+PUBLISH_DELAY = 0.5
+
+
+# ======================================
+# MQTT SETUP
+# ======================================
+
+def on_connect(client, userdata, flags, rc):
+    print(f"[MQTT] Connected rc={rc}")
+
+client = mqtt_client.Client(protocol=mqtt_client.MQTTv311)
+client.on_connect = on_connect
+client.connect(MQTT_BROKER, MQTT_PORT, 60)
+client.loop_start()
+
+time.sleep(1)  # ensure connection
+
+
+# ======================================
+# KWS START (SESSION BEGIN)
+# ======================================
+
+session_hint = datetime.now().strftime("%Y%m%d-%H%M%S")
+
+print("[SIM] Sending KWS MULAI")
+
+client.publish(
+    TOPIC_KWS,
+    payload=json.dumps({
+        "event": "start",
+        "session_hint": session_hint
+    }),
+    qos=1
+)
+
+time.sleep(1.5)  # IMPORTANT: give ingestor time to create session
+
+
+# ======================================
+# LOAD & SPLIT AUDIO
+# ======================================
+
+audio = AudioSegment.from_file(AUDIO_FILE, format="mp3")
 chunks = []
-for i in range(0, len(audio), chunk_length_ms):
-    chunk = audio[i:i + chunk_length_ms]
+
+for i in range(0, len(audio), CHUNK_MS):
+    chunk = audio[i:i + CHUNK_MS]
     if len(chunk) < 1000:
         chunk += AudioSegment.silent(duration=1000 - len(chunk))
     chunks.append(chunk)
 
-# --- MQTT Setup ---
-def on_connect(client, userdata, flags, rc):
-    print(f"[MQTT] Connected with result code {rc}")
+print(f"[SIM] Streaming {len(chunks)} audio chunks")
 
-client = mqtt_client.Client(protocol=mqtt_client.MQTTv311)
-client.on_connect = on_connect
-client.connect(mqtt_broker, mqtt_port, 60)
-client.loop_start()
 
-# --- Publish chunks to MQTT only ---
-for i, chunk in enumerate(chunks, start=1):
-    with tempfile.NamedTemporaryFile(suffix=".mp3", prefix=f"chunk_{i}_", delete=False) as tmpfile:
-        chunk.export(tmpfile.name, format="mp3")
-        temp_path = tmpfile.name
+# ======================================
+# STREAM AUDIO
+# ======================================
 
-    with open(temp_path, "rb") as f:
+for idx, chunk in enumerate(chunks, start=1):
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
+        chunk.export(tmp.name, format="mp3")
+        tmp_path = tmp.name
+
+    with open(tmp_path, "rb") as f:
         audio_bytes = f.read()
 
-    audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
-
     payload = {
-        "session_id": session_id,
-        "chunk_number": i,
-        "audio_base64": audio_b64
+        "chunk_number": idx,
+        "audio_base64": base64.b64encode(audio_bytes).decode("utf-8")
     }
 
-    client.publish(topic, json.dumps(payload))
-    print(f"[CHUNK {i}] Published to MQTT")
-    os.remove(temp_path)
-    time.sleep(0.5)
+    client.publish(
+        TOPIC_AUDIO,
+        payload=json.dumps(payload),
+        qos=0
+    )
 
-print(f"[SIMULATION] Session ended (MQTT only)")
+    print(f"[SIM] Published chunk {idx}")
+
+    os.remove(tmp_path)
+    time.sleep(PUBLISH_DELAY)
+
+
+# ======================================
+# KWS END (SESSION FINISH)
+# ======================================
+
+print("[SIM] Sending KWS SELESAI")
+
+client.publish(
+    TOPIC_KWS,
+    payload=json.dumps({
+        "event": "selesai"
+    }),
+    qos=1
+)
+
+time.sleep(1)
 
 client.loop_stop()
 client.disconnect()
+
+print("[SIM] Simulation complete")
