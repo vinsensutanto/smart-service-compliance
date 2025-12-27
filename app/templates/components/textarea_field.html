@@ -1,0 +1,37 @@
+{#
+    Expected variables:
+    - name
+    - label (optional)
+    - rows (default: 2)
+    - value (optional)
+    - placeholder
+    - class
+    - form
+#}
+
+<div class="form-group mb-3">
+
+    {% if label %}
+        <label for="{{ name }}" class="form-label fw-bold">
+            {{ label }}
+        </label>
+    {% endif %}
+
+    <textarea
+        id="{{ name }}"
+        name="{{ name }}"
+        rows="{{ rows | default(2) }}"
+        placeholder="{{ placeholder | default('') }}"
+        class="form-control
+               {% if form and form[name].errors %}is-invalid{% endif %}
+               {{ class | default('') }}"
+        style="font-size: 0.9rem"
+    >{{ request.form.get(name, value | default('')) }}</textarea>
+
+    {% if form and form[name].errors %}
+        <span class="invalid-feedback">
+            {{ form[name].errors[0] }}
+        </span>
+    {% endif %}
+
+</div>

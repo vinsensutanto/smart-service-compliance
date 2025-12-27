@@ -3,9 +3,9 @@ from app.extensions import db
 from app.models.user import User
 from app.models.workstation import Workstation
 
-auth_bp = Blueprint("auth", __name__)
+auth_api_bp = Blueprint("auth_api", __name__)
 
-@auth_bp.route("/login", methods=["POST"])
+@auth_api_bp.route("/login", methods=["POST"])
 def login():
     data = request.get_json()
 
