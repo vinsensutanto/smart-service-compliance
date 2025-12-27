@@ -1,4 +1,298 @@
-{% extends "layouts/app.html" %}
+{% extends "layouts/app.html" %} 
 {% block content %}
-    <h1>Halaman My History</h1>
+<style>
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    background-color: #f8f9fa;
+  }
+  .history-wrapper {
+    height: calc(100vh - 100px);
+    display: flex;
+    flex-direction: column;
+  }
+  .panel-card {
+    background: white;
+    border-radius: 15px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  }
+  .content-scroll-area {
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  /* Table Styling */
+  .table-history {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+  .table-history thead th {
+    position: sticky;
+    top: 0;
+    background: #fcfcfc;
+    color: #6c757d;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    padding: 12px 15px;
+    border-bottom: 1px solid #eee;
+    z-index: 10;
+  }
+  .table-history tbody td {
+    padding: 12px 15px;
+    border-bottom: 1px solid #f1f1f1;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+
+  /* Smooth Transition Logic */
+  .detail-row {
+    background-color: #f8fbff;
+  }
+  .detail-content-wrapper {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s ease-out, opacity 0.3s ease, padding 0.3s ease;
+    opacity: 0;
+  }
+  .detail-row.show .detail-content-wrapper {
+    max-height: 500px; /* Nilai besar agar konten tidak terpotong */
+    opacity: 1;
+    padding: 1.5rem 0;
+  }
+
+  /* Interaction UI */
+  .clickable-row:hover td {
+    background-color: #f8f9ff;
+  }
+  .clickable-row i.bi-chevron-down {
+    transition: transform 0.3s ease;
+  }
+  .clickable-row.active {
+    background-color: #f8fbff;
+  }
+  .clickable-row.active i.bi-chevron-down {
+    transform: rotate(180deg);
+    color: #0d6efd !important;
+  }
+
+  /* Stats & Insights */
+  .report-section {
+    padding: 20px;
+    border-bottom: 1px solid #f8f9fa;
+  }
+  .stats-big {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: #0d6efd;
+    line-height: 1;
+  }
+  .stats-sub {
+    font-size: 0.65rem;
+    color: #adb5bd;
+    text-transform: uppercase;
+    font-weight: 700;
+    margin-bottom: 5px;
+  }
+  .compliance-tag {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    font-weight: bold;
+  }
+  .insight-pill {
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 10px;
+    border-left: 4px solid #0d6efd;
+  }
+  .insight-label {
+    font-size: 0.6rem;
+    color: #6c757d;
+    text-transform: uppercase;
+    font-weight: bold;
+  }
+  .insight-value {
+    font-size: 0.85rem;
+    font-weight: bold;
+    color: #212529;
+    display: block;
+  }
+</style>
+
+<div class="container py-3 history-wrapper">
+  {# DATA PROCESSING (Jinja2 Logic) #} 
+  {% set total_sessions = history|length %}
+  {% set normal_flow_count = history|selectattr('is_normal_flow', 'equalto', 1)|list|length %} 
+  {% set compliance_rate = (normal_flow_count / total_sessions * 100)|round(1) if total_sessions > 0 else 0 %} 
+  
+  {% set durations = history|map(attribute='duration')|select('number')|list %} 
+  {% set avg_duration = (durations|sum / durations|length)|round(0)|int if durations|length > 0 else 0 %} 
+  
+  {# Cari Service Paling Cepat #} 
+  {% set sorted_by_speed = history|selectattr('duration', 'number')|sort(attribute='duration')|list %}
+  {% set fastest_service = sorted_by_speed[0] if sorted_by_speed|length > 0 else none %}
+
+  <div class="row align-items-center mb-3 flex-shrink-0">
+    <div class="col-12 text-start">
+      <h2 class="fw-bold text-dark mb-1">Activity Log & Analytics</h2>
+      <p class="text-muted small mb-0">Track your SOP compliance and service efficiency.</p>
+    </div>
+  </div>
+
+  <div class="row flex-grow-1 overflow-hidden">
+    {# LEFT PANEL: LIST HISTORY #}
+    <div class="col-md-8 h-100">
+      <div class="panel-card">
+        <div class="content-scroll-area">
+          <table class="table-history">
+            <thead>
+              <tr>
+                <th>Service Details</th>
+                <th>Duration</th>
+                <th>Date & Time</th>
+                <th>Flow Status</th>
+                <th style="width: 40px"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for record in history %}
+              <tr class="clickable-row" id="row-{{ record.service_record_id }}" onclick="toggleDetail('{{ record.service_record_id }}')">
+                <td>
+                  <span class="d-block fw-bold text-dark">{{ record.service_detected or 'Manual Input' }}</span>
+                  <small class="text-muted" style="font-size: 0.65rem">ID: {{ record.service_record_id }}</small>
+                </td>
+                <td>
+                  <span class="fw-bold text-dark">
+                    {% if record.duration %} 
+                      {% set minutes = (record.duration // 60) %} 
+                      {% set seconds = (record.duration % 60) %} 
+                      {{ minutes }}m {{ seconds }}s 
+                    {% else %} 0s {% endif %}
+                  </span>
+                </td>
+                <td>
+                  <div style="font-size: 0.75rem">{{ record.start_time.strftime('%d %b %Y') }}</div>
+                  <small class="text-muted">{{ record.start_time.strftime('%H:%M') }}</small>
+                </td>
+                <td>
+                  {% if record.is_normal_flow %}
+                  <span class="compliance-tag bg-success-subtle text-success">COMPLETE</span>
+                  {% else %}
+                  <span class="compliance-tag bg-warning-subtle text-warning">BYPASS</span>
+                  {% endif %}
+                </td>
+                <td><i class="bi bi-chevron-down small text-muted"></i></td>
+              </tr>
+
+              {# HIDDEN DETAIL ROW #}
+              <tr id="detail-{{ record.service_record_id }}" class="detail-row">
+                <td colspan="5" class="p-0">
+                  <div class="detail-content-wrapper px-4">
+                    <div class="row g-3">
+                      <div class="col-md-12">
+                        <h6 class="fw-bold small text-muted text-uppercase mb-2" style="font-size: 0.6rem">
+                          Interaction Transcript
+                        </h6>
+                        <div class="p-3 bg-white border rounded small text-secondary shadow-sm" style="font-size: 0.75rem; line-height: 1.5; font-style: italic;">
+                          "{{ record.text or 'No transcript available for this session.' }}"
+                        </div>
+                      </div>
+                      {% if record.reason %}
+                      <div class="col-md-12">
+                        <div class="p-2 bg-danger-subtle text-danger rounded small" style="font-size: 0.7rem">
+                          <strong><i class="bi bi-info-circle-fill"></i> Override Reason:</strong> {{ record.reason }}
+                        </div>
+                      </div>
+                      {% endif %}
+                    </div>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    {# RIGHT PANEL: REPORTING #}
+    <div class="col-md-4 h-100">
+      <div class="panel-card">
+        <div class="p-3 bg-light border-bottom sticky-top">
+          <h6 class="fw-bold mb-0" style="font-size: 0.8rem">
+            <i class="bi bi-graph-up-arrow me-2"></i>MY ANALYTICS
+          </h6>
+        </div>
+
+        <div class="content-scroll-area">
+          <div class="report-section">
+            <p class="stats-sub">Compliance Rate</p>
+            <div class="d-flex align-items-end gap-2">
+              <h1 class="stats-big">{{ compliance_rate }}%</h1>
+              <small class="text-muted mb-1" style="font-size: 0.65rem">/ {{ total_sessions }} sessions</small>
+            </div>
+            <div class="progress mt-2" style="height: 6px">
+              <div class="progress-bar {% if compliance_rate >= 80 %}bg-success{% else %}bg-warning{% endif %}" style="width: {{ compliance_rate }}%"></div>
+            </div>
+          </div>
+
+          <div class="report-section">
+            <p class="stats-sub mb-3">Efficiency Highlights</p>
+            <div class="insight-pill">
+              <span class="insight-label">Fastest Completion</span>
+              <span class="insight-value">{{ fastest_service.service_detected if fastest_service else 'N/A' }}</span>
+              <small class="text-primary fw-bold" style="font-size: 0.65rem">
+                Record: {{ fastest_service.duration // 60 }}m {{ fastest_service.duration % 60 }}s
+              </small>
+            </div>
+
+            <div class="insight-pill" style="border-left-color: #6610f2">
+              <span class="insight-label">Recent Most Handled</span>
+              <span class="insight-value">{{ history[0].service_detected if history|length > 0 else 'N/A' }}</span>
+              <small class="text-muted" style="font-size: 0.65rem">Based on latest session</small>
+            </div>
+          </div>
+
+          <div class="report-section border-bottom-0">
+            <p class="stats-sub">Avg. Service Time</p>
+            <h1 class="stats-big text-dark">{{ (avg_duration // 60) }}m {{ (avg_duration % 60) }}s</h1>
+            <small class="text-muted d-block mt-1" style="font-size: 0.6rem">Average across your entire history</small>
+          </div>
+
+          <div class="mx-3 mb-3 p-3 rounded shadow-sm" style="background-color: #f0f7ff; border: 1px solid #d0e5ff">
+            <h6 class="fw-bold text-primary mb-1" style="font-size: 0.7rem">Compliance Note</h6>
+            <p class="mb-0 text-muted" style="font-size: 0.65rem; line-height: 1.4">
+              Greatest efficiency was found in <b>{{ fastest_service.service_detected if fastest_service else '...' }}</b>. 
+              Aim for this consistency in other services.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function toggleDetail(id) {
+    const detailRow = document.getElementById("detail-" + id);
+    const mainRow = document.getElementById("row-" + id);
+    const isShowing = detailRow.classList.contains("show");
+
+    // Close all other open details (Accordion Effect)
+    document.querySelectorAll(".detail-row").forEach((row) => row.classList.remove("show"));
+    document.querySelectorAll(".clickable-row").forEach((row) => row.classList.remove("active"));
+
+    // Toggle current row
+    if (!isShowing) {
+      detailRow.classList.add("show");
+      mainRow.classList.add("active");
+    }
+  }
+</script>
 {% endblock %}

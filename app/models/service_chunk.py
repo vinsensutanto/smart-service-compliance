@@ -29,4 +29,4 @@ class ServiceChunk(db.Model):
             num = int(last_id[2:]) + 1
         else:
             num = 1
-        return f"CH{num:04d}"
+        return f"CU{num:04d}"

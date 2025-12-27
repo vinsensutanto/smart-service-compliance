@@ -172,13 +172,20 @@
           >
             <i class="bi bi-stop-circle me-2"></i> Stop Session Manually
           </button>
-          <small
-            id="btn-hint"
-            class="text-muted d-block text-center mt-2"
-            style="font-size: 0.7rem"
-          >
-            Finish all steps above to enable manual stop.
-          </small>
+          <div id="btn-hint" class="text-center mt-2 px-3">
+            <div class="text-danger fw-bold mb-1" style="font-size: 0.7rem">
+              <i class="bi bi-exclamation-octagon-fill me-1"></i> EMERGENCY
+              OVERRIDE
+            </div>
+            <p
+              class="text-muted mb-0"
+              style="font-size: 0.6rem; line-height: 1.2"
+            >
+              <span class="text-danger">WARNING:</span> Use only for AI failure
+              or human error. Manual stops are <b>flagged</b> and will
+              <b>impact</b> your performance score.
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -292,6 +299,7 @@
 <script>
   const socket = io();
   let currentSessionId = "{{ active_session.session_id if active_session else '' }}";
+  let sopState = {}; // step_id => true/false
   // Jika ada sesi aktif, jalankan fungsi pendukung UI
   {% if active_session %}
   document.addEventListener("DOMContentLoaded", () => {
@@ -311,28 +319,36 @@
     updateUI(data);
   });
 
-  function updateUI(payload) {
-    // Karena Backend mengirim 'sop', kita cek itu dulu
+function updateUI(payload) {
+    console.log("Payload received:", payload);
+
     if (!payload.sop || payload.sop.length === 0) return;
 
-    // MENGGANTI: dari payload.service_record_id menjadi payload.session_id
-    // Sesuai dengan socketio.emit("sop_update", {"session_id": ...}) di Backend
-    currentSessionId = payload.session_id;
+    // Ambil ID dengan fallback yang aman
+    currentSessionId = payload.session_id || payload.service_record_id || payload.id;
 
-    // Update Indikator di Header
-    document.getElementById("session-indicator").innerHTML = `
-      <span class="badge bg-success p-2 shadow-sm animate-pulse">
-        <i class="bi bi-record-circle-fill me-1"></i> ACTIVE: ${payload.session_id}
-      </span>`;
+    // Update Indikator di Header (Gunakan currentSessionId, jangan payload.session_id langsung)
+    const sessionIndicator = document.getElementById("session-indicator");
+    if (currentSessionId) {
+        sessionIndicator.innerHTML = `
+            <span class="badge bg-success p-2 shadow-sm animate-pulse">
+                <i class="bi bi-record-circle-fill me-1"></i> ACTIVE: ${currentSessionId}
+            </span>`;
+    } else {
+        sessionIndicator.innerHTML = `
+            <span class="badge bg-warning p-2 shadow-sm text-dark">
+                <i class="bi bi-exclamation-triangle-fill me-1"></i> ID NOT FOUND
+            </span>`;
+    }
 
     // Sembunyikan placeholder, tampilkan panel deteksi
     document.getElementById("ai-waiting").classList.add("d-none");
     document.getElementById("ai-detected").classList.remove("d-none");
 
-    // Gunakan 'service' sesuai emit dari Backend
     document.getElementById("service-name-text").innerText = payload.service
       ? payload.service.toUpperCase()
       : "DETECTING...";
+    
     document.getElementById("accuracy-val").innerText = `Accuracy: ${(
       payload.confidence * 100
     ).toFixed(1)}%`;
@@ -342,23 +358,18 @@
     document.getElementById("sop-placeholder").classList.add("d-none");
     list.classList.remove("d-none");
     list.innerHTML = "";
-    document.getElementById("step-count").innerText =
-      payload.sop.length + " Steps";
+    document.getElementById("step-count").innerText = payload.sop.length + " Steps";
 
     payload.sop.forEach((item, index) => {
-      const isChecked = item.checked;
+      const isChecked = sopState[item.step_id] ?? item.checked; // Gunakan state lokal atau data backend
       list.innerHTML += `
         <li class="list-group-item ${isChecked ? "completed" : ""}">
           <div class="step-circle">${index + 1}</div>
           <div class="sop-description">
-            <p class="mb-0 small ${isChecked ? "text-success" : "text-dark"}">${
-        item.description
-      }</p>
+            <p class="mb-0 small ${isChecked ? "text-success" : "text-dark"}">${item.description}</p>
           </div>
           <input class="form-check-input sop-checkbox" type="checkbox" style="width:20px;height:20px;"
-                 ${isChecked ? "checked" : ""} onchange="toggleStep('${
-        item.step_id
-      }', this.checked)">
+                 ${isChecked ? "checked" : ""} onchange="toggleStep('${item.step_id}', this.checked)">
         </li>`;
     });
 
@@ -367,18 +378,21 @@
   }
 
   function toggleStep(stepId, isChecked) {
+    console.log("CLICKED:", stepId, isChecked);
+    sopState[stepId] = isChecked; // SIMPAN DI FRONTEND
+    updateButtonState();
     if (!currentSessionId) return;
     socket.emit("checklist_update", {
       session_id: currentSessionId,
       step_id: stepId,
       checked: isChecked,
     });
-    setTimeout(updateButtonState, 100);
   }
 
   function updateButtonState() {
     const total = document.querySelectorAll(".sop-checkbox").length;
     const checked = document.querySelectorAll(".sop-checkbox:checked").length;
+    console.log("TOTAL:", total, "CHECKED:", checked);
     const btn = document.getElementById("main-end-btn");
     if (total > 0 && total === checked) {
       btn.disabled = false;

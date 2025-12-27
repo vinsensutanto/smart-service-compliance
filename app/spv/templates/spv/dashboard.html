@@ -1,0 +1,179 @@
+{% extends "layouts/app.html" %} {% block content %}
+<meta http-equiv="refresh" content="60" />
+
+<style>
+  html,
+  body {
+    height: 100%;
+    background-color: #f8f9fa;
+  }
+  .spv-container {
+    padding: 2rem 0;
+  }
+  .card {
+    border-radius: 15px;
+    border: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  }
+  .status-badge {
+    padding: 5px 12px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .bg-success-soft {
+    background-color: #e8f5e9;
+    color: #198754;
+  }
+  .bg-secondary-soft {
+    background-color: #f8f9fa;
+    color: #6c757d;
+    border: 1px solid #dee2e6;
+  }
+  .alert-card {
+    background-color: #fff5f5;
+    border-left: 4px solid #dc3545;
+    border-radius: 12px;
+  }
+  .stats-label {
+    font-size: 0.7rem;
+    color: #adb5bd;
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+</style>
+
+<div class="container spv-container">
+  <div class="row align-items-center mb-4">
+    <div class="col">
+      <h2 class="fw-bold text-dark mb-0">Supervisor Dashboard</h2>
+      <p class="text-muted small">
+        Monitoring branch operations and procedural compliance.
+      </p>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-md-4">
+      <div class="card p-3">
+        <span class="stats-label">Sessions (Today)</span>
+        <h2 class="fw-bold text-primary mb-0">{{ total_sessions }}</h2>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card p-3">
+        <span class="stats-label">Active Workstations</span>
+        {% set active_ws = stations|selectattr('0.is_active', 'equalto',
+        1)|list|length %}
+        <h2 class="fw-bold text-success mb-0">
+          {{ active_ws }}
+          <small class="h6 text-muted">/ {{ stations|length }}</small>
+        </h2>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card p-3">
+        <span class="stats-label">Manual Overrides</span>
+        <h2 class="fw-bold text-danger mb-0">{{ alerts|length }}</h2>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <div class="card h-100">
+        <div class="card-header bg-white py-3 px-4 border-0">
+          <h5 class="fw-bold mb-0">Station Monitoring</h5>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table align-middle mb-0">
+              <thead class="bg-light">
+                <tr class="stats-label">
+                  <th class="ps-4">Station</th>
+                  <th>Logged In Staff</th>
+                  <th>Status</th>
+                  <th class="pe-4">Location</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for station, user in stations %}
+                <tr>
+                  <td class="ps-4">
+                    <div class="fw-bold text-dark">
+                      {{ station.workstation_id }}
+                    </div>
+                    <small class="text-muted">PC: {{ station.pc_id }}</small>
+                  </td>
+                  <td>
+                    {% if user %}
+                    <div class="d-flex align-items-center">
+                      <i class="bi bi-person-circle me-2 text-primary"></i>
+                      <span class="fw-semibold">{{ user.name }}</span>
+                    </div>
+                    {% else %}
+                    <span class="text-muted small italic">Vacant</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if station.is_active %}
+                    <span class="status-badge bg-success-soft">ACTIVE</span>
+                    {% else %}
+                    <span class="status-badge bg-secondary-soft">IDLE</span>
+                    {% endif %}
+                  </td>
+                  <td class="pe-4 small text-muted">{{ station.location }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="card h-100">
+        <div class="card-header bg-white py-3 px-4 border-0">
+          <h5 class="fw-bold mb-0 text-danger">Bypass Alerts</h5>
+        </div>
+        <div class="card-body px-4">
+          {% if alerts %} {% for record, user in alerts %}
+          <div class="alert-card p-3 mb-3 shadow-sm">
+            <div class="d-flex justify-content-between mb-1">
+              <span class="fw-bold small text-dark"
+                >{{ user.name if user else 'Unknown Staff' }}</span
+              >
+              <small class="text-danger fw-bold"
+                >{{ record.service_record_id }}</small
+              >
+            </div>
+            <div class="small text-muted mb-2">
+              <i class="bi bi-megaphone me-1"></i> {{ record.service_detected }}
+            </div>
+            <div class="p-2 bg-white rounded border small italic mb-2">
+              "{{ record.reason if record.reason else 'No reason provided' }}"
+            </div>
+            <div class="text-end">
+              <small class="text-muted" style="font-size: 0.7rem">
+                <i class="bi bi-clock me-1"></i>{{
+                record.start_time.strftime('%H:%M:%S') if record.start_time else
+                '-' }}
+              </small>
+            </div>
+          </div>
+          {% endfor %} {% else %}
+          <div class="text-center py-5">
+            <i class="bi bi-shield-check text-light display-1"></i>
+            <p class="text-muted small mt-2">
+              No procedural overrides detected today.
+            </p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
