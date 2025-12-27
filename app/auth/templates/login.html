@@ -1,0 +1,53 @@
+{% extends "layouts/app.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center align-items-center" style="min-height: 80vh;">
+        <div class="col-md-6">
+            <div class="card shadow-lg border-0">
+                <div class="card-body p-5">
+                    <div class="text-center mb-4">
+                        <i class="bi bi-shield-check text-primary fs-1"></i>
+                        <h3 class="fw-bold mt-3">Welcome Back!</h3>
+                        <p class="text-muted small">Login to access the Smart Service Compliance Assistant</p>
+                    </div>
+
+                    <form method="POST">
+                        {{ form.csrf_token }}
+
+                        {% set name='email' %}
+                        {% set label='Email Address' %}
+                        {% set type='email' %}
+                        {% set class='form-control-lg' %}
+                        {% set placeholder='Email Address' %}
+                        {% set required=True %}
+                        {% set autofocus=True %}
+                        {% set form=form %}
+                        {% include "components/input_field.html" %}
+
+                        {% set name='password' %}
+                        {% set label='Password' %}
+                        {% set type='password' %}
+                        {% set class='form-control-lg' %}
+                        {% set placeholder='Password' %}
+                        {% set required=True %}
+                        {% set autofocus=False %}
+                        {% set form=form %}
+                        {% include "components/input_field.html" %}
+
+                        <div class="d-grid mb-3">
+                            <button type="submit" class="btn btn-primary btn-lg fw-bold">Login</button>
+                        </div>
+                    </form>
+
+                    <div class="text-center">
+                        <p class="small text-muted">
+                            Don't have an account? <a href="/request-access">Request Access</a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -64,6 +64,14 @@ def debug_audio_sop():
         "sop": sop
     })
 
+@service_bp.route("/debug-user", methods=["GET"])
+def debug_user():
+    return {
+        "is_authenticated": current_user.is_authenticated,
+        "user_id": getattr(current_user, "user_id", None),
+        "role_id": getattr(current_user, "role_id", None)
+    }
+
 
 # =====================================================
 # JSON API: Checklist items per ServiceRecord

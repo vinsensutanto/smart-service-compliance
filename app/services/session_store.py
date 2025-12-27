@@ -40,7 +40,7 @@ def finalize_session(service_record_id: str):
         .first()
     )
     if not record:
-        raise RuntimeError("ServiceRecord not found")
+        raise RuntimeError("SperviceRecord not found")
 
     if record.end_time:
         return  # already finalized
