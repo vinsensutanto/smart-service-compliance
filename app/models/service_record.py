@@ -19,6 +19,7 @@ class ServiceRecord(db.Model):
     text = db.Column(db.Text, nullable=True)
     audio_path = db.Column(db.String(255), nullable=True)
     is_normal_flow = db.Column(db.Boolean, default=True)
+    reason = db.Column(db.String(255)) 
 
     @staticmethod
     def generate_id(last_id):

@@ -11,6 +11,7 @@ from app.routes.sop_page_routes import sop_page_bp
 from app.routes.auth import auth_api_bp 
 from app.auth.routes import auth_web_bp
 from app.cs.routes import cs_bp
+from app.spv.routes import spv_bp
 
 def create_app(start_services=False):
     app = Flask(
@@ -39,6 +40,7 @@ def create_app(start_services=False):
     app.register_blueprint(service_bp, url_prefix="/api")
     app.register_blueprint(sop_page_bp)
     app.register_blueprint(cs_bp, url_prefix='/cs')
+    app.register_blueprint(spv_bp, url_prefix='/spv')
 
     # === START BACKGROUND SERVICES ===
     # Gunakan pengecekan WERKZEUG_RUN_MAIN agar tidak jalan double saat auto-reload

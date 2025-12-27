@@ -60,8 +60,8 @@ def test_trigger_sop():
             { "step_id": "S01", "description": "Menyapa nasabah dengan ramahMenyapa nasabah dengan ramahMenyapa nasabah dengan ramahMenyapa nasabah dengan ramahMenyapa nasabah dengan ramahMenyapa nasabah dengan ramahMenyapa nasabah dengan ramahMenyapa nasabah dengan ramahMenyapa nasabah dengan ramahMenyapa nasabah dengan ramah", "checked": False },
             { "step_id": "S02", "description": "Meminta KTP", "checked": False },
             { "step_id": "S03", "description": "Input data ke sistem", "checked": False },
-            { "step_id": "S01", "description": "Menyapa nasabah dengan ramah", "checked": False },
-            { "step_id": "S02", "description": "Meminta KTP", "checked": False }
+            { "step_id": "S04", "description": "Menyapa nasabah dengan ramah", "checked": False },
+            { "step_id": "S05", "description": "Meminta KTP", "checked": False }
         ]
         
     }

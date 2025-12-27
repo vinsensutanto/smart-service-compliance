@@ -1,10 +1,13 @@
 # app/cs/routes.py
 import os
 from flask import Blueprint, render_template
-from flask_login import login_required
+from flask_login import current_user, login_required
 from app.models.workstation import Workstation
 from app.extensions import db
 from app.services.session_manager import active_sessions
+from app.models.sop_service import SOPService 
+from app.models.sop_step import SOPStep    
+from app.models.service_record import ServiceRecord   
 
 # template_folder='templates' merujuk ke folder 'templates' di dalam folder 'cs'
 cs_bp = Blueprint('cs', __name__, template_folder='templates')
@@ -34,11 +37,23 @@ def dashboard():
 @cs_bp.route('/service-guidelines')
 @login_required
 def service_guidelines():
-    # Ini akan mencari file: app/cs/templates/cs/service_guidelines.html
-    return render_template('cs/service-guidelines.html')
+    # 1. Ambil semua data layanan (SV0001, SV0002, dll)
+    services = db.session.query(SOPService).all()
+    
+    # 2. Ambil semua data langkah-langkah (ST0001, ST0002, dll)
+    # Kita ambil semua sekaligus karena ini halaman statis
+    steps = db.session.query(SOPStep).order_by(SOPStep.step_number.asc()).all()
+    
+    # 3. Kirim ke file HTML kamu
+    return render_template('cs/service-guidelines.html', 
+                           services=services, 
+                           steps=steps)
 
 @cs_bp.route('/my-history')
 @login_required
 def my_history():
-    return render_template('cs/my-history.html')
+    # Query data berdasarkan user_id yang sedang login
+    history = ServiceRecord.query.filter_by(user_id=current_user.user_id)\
+              .order_by(ServiceRecord.start_time.desc()).all()
+    return render_template('cs/my-history.html', history=history)
 
