@@ -5,7 +5,7 @@ INSERT INTO roles (role_id, role_name) VALUES
 ("RL0001", "Customer Service"),
 ("RL0002", "Supervisor"),
 ("RL0003", "IT Support"),
-("RL0004", "Auditor"),
+("RL0004", "Auditor"), 
 ("RL0005", "Branch Manager");
 
 -- =========================

@@ -15,6 +15,7 @@ from app.extensions import db
 from app.models.service_chunk import ServiceChunk
 from app.models.service_record import ServiceRecord
 from app.services.service_detector import detect_service
+from app.models.workstation import Workstation
 
 # ===============================
 # GLOBAL STATE
@@ -101,14 +102,26 @@ def start_ingestor(app, broker="localhost", port=1883):
                         last.service_record_id if last else None
                     )
 
+                    # cari workstation berdasarkan rpi_id
+                    workstation = (
+                        db.session.query(Workstation)
+                        .filter_by(rpi_id=rp_id)
+                        .first()
+                    )
+
+                    if not workstation:
+                        print(f"[INGESTOR] Unknown RP ID: {rp_id}")
+                        return  # stop processing this message
+
                     record = ServiceRecord(
                         service_record_id=new_id,
-                        workstation_id=rp_id,
+                        workstation_id=workstation.workstation_id,  # WSxxxx
                         start_time=datetime.now(timezone.utc),
                         service_detected=None,
                         service_id=None,
                         confidence=None
                     )
+
 
                     db.session.add(record)
                     db.session.commit()
