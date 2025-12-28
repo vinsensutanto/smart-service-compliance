@@ -218,6 +218,15 @@
     updateUI(data);
   });
 
+  socket.on("session_ended", (data) => {
+    console.log("Session ended:", data);
+    const sessionIndicator = document.getElementById("session-indicator");
+    sessionIndicator.innerHTML = `<span class="badge bg-warning p-2 shadow-sm text-dark">
+      <i class="bi bi-exclamation-triangle-fill me-1"></i> ENDED: ${data.session_id}
+    </span>`;
+    document.getElementById("action-footer").classList.add("d-none");
+  });
+
   function updateUI(payload) {
     if (!payload.sop || payload.sop.length === 0) return;
 
@@ -312,20 +321,24 @@
   }
 
   async function submitManualEnd() {
-    const selectElement = document.getElementById("reason-select");
-    const noteElement = document.getElementById("force-end-note");
-    let finalReasonValue = selectElement.value === "other" ? noteElement.value.trim() : selectElement.value;
+  const selectElement = document.getElementById("reason-select");
+  const noteElement = document.getElementById("force-end-note");
+  let finalReasonValue = selectElement.value === "other" ? noteElement.value.trim() : selectElement.value;
 
-    if (!finalReasonValue) {
-      alert("Please describe your reason in the text box.");
-      return;
-    }
-
-    const payload = { reason: finalReasonValue, is_normal_flow: 0 };
-    console.log("Payload sent to API:", payload);
-    alert(`Manual Stop Confirmed.\nReason: ${finalReasonValue}`);
-    location.reload();
+  if (!finalReasonValue) {
+    alert("Please describe your reason in the text box.");
+    return;
   }
+
+  // Send via WebSocket
+  socket.emit("session_end", {
+    rp_id: "{{ workstation.rpi_id if workstation else '' }}",
+    reason: finalReasonValue
+  });
+
+  alert(`Manual Stop Confirmed.\nReason: ${finalReasonValue}`);
+  location.reload();
+}
 
   {% if initial_payload %}
   document.addEventListener("DOMContentLoaded", () => {

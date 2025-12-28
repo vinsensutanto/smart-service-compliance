@@ -10,6 +10,8 @@ from app.models.service_record import ServiceRecord
 from app.models.sop_service import SOPService
 from app.models.sop_step import SOPStep
 from app.models.service_checklist import ServiceChecklist
+from app.extensions import socketio
+from app.services import session_manager
 
 cs_bp = Blueprint("cs", __name__, template_folder="templates")
 
@@ -110,3 +112,15 @@ def my_history():
     )
 
     return render_template("cs/my-history.html", history=history)
+
+@socketio.on("session_end")
+def handle_manual_end(data):
+    rp_id = data.get("rp_id")
+    reason = data.get("reason")
+    sr_id = session_manager.end_session_by_rp(rp_id, reason=reason)
+    
+    if sr_id:
+        sr = ServiceRecord.query.filter_by(service_record_id=sr_id).first()
+        sr.is_normal_flow = 0
+        db.session.commit()
+        socketio.emit("session_ended", {"session_id": sr_id, "reason": reason})
