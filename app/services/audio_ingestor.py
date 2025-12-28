@@ -51,11 +51,11 @@ def on_message(client, userdata, msg):
         print("[INGESTOR] Invalid topic:", msg.topic)
         return
 
-    rp_id = parts[1].lower()
+    rp_id = parts[1].upper()
     channel = parts[2]
     event_type = parts[3]
 
-    app = userdata["app"]   # ✅ THIS IS THE KEY FIX
+    app = userdata["app"]
 
     # -----------------------------
     # KWS EVENT

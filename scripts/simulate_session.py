@@ -13,7 +13,7 @@ from paho.mqtt import client as mqtt_client
 # CONFIG (MATCH INGESTOR)
 # ======================================
 
-RP_ID = "rp0001"   # LOWERCASE - IMPORTANT
+RP_ID = "RP0002"
 AUDIO_FILE = "data/audio/pendaftaranmbca_laki_tidakfasih.mp3"
 
 MQTT_BROKER = "localhost"
@@ -112,13 +112,13 @@ for idx, chunk in enumerate(chunks, start=1):
 
 print("[SIM] Sending KWS SELESAI")
 
-client.publish(
-    TOPIC_KWS,
-    payload=json.dumps({
-        "event": "selesai"
-    }),
-    qos=1
-)
+# client.publish(
+#     TOPIC_KWS,
+#     payload=json.dumps({
+#         "event": "selesai"
+#     }),
+#     qos=1
+# )
 
 time.sleep(1)
 

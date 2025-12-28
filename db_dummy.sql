@@ -15,10 +15,10 @@ INSERT INTO workstations (
     workstation_id, pc_id, rpi_id, location, is_active
 ) VALUES
 ("WS0001", "PC0001", "RP0001", "CS Desk 1", 1),
-("WS0002", "PC0002", "RP0002", "CS Desk 2", 0),
-("WS0003", "PC0003", "RP0003", "CS Desk 3", 0),
-("WS0004", "PC0004", "RP0004", "CS Desk 4", 0),
-("WS0005", "PC0005", "RP0005", "CS Desk 5", 0);
+("WS0002", "PC0002", "RP0002", "CS Desk 2", 1),
+("WS0003", "PC0003", "RP0003", "CS Desk 3", 1),
+("WS0004", "PC0004", "RP0004", "CS Desk 4", 1),
+("WS0005", "PC0005", "RP0005", "CS Desk 5", 1);
 
 -- =========================
 -- SOP SERVICES
@@ -42,24 +42,24 @@ INSERT INTO users (
     updated_at
 ) VALUES
 ("US0001", "RL0001", "Budi Tabuti", "buditabuti@example.com",
- "$2y$10$wH8kZ9N6X4FQqYy6G3U1Ue4K5A2mJYk8Zk1zZr1Xx2y9Zp0yH6l6S",
+ "$2b$12$nh5EA8F9Gamwrw6phaY7KuVRp.mgLh/MQkMlBp0ohvtv3bS3H9QNC",
  1, "2020-12-22 13:00:00", "2020-12-22 13:00:00"),
 
 ("US0002", "RL0001", "Dedi Pratama", "dedipratama@example.com",
- "$2y$10$wH8kZ9N6X4FQqYy6G3U1Ue4K5A2mJYk8Zk1zZr1Xx2y9Zp0yH6l6S",
- 0, "2020-12-23 14:00:00", "2020-12-23 14:00:00"),
+ "$2b$12$nh5EA8F9Gamwrw6phaY7KuVRp.mgLh/MQkMlBp0ohvtv3bS3H9QNC",
+ 1, "2020-12-23 14:00:00", "2020-12-23 14:00:00"),
 
 ("US0003", "RL0001", "Agus Saputra", "agussaputra@example.com",
- "$2y$10$wH8kZ9N6X4FQqYy6G3U1Ue4K5A2mJYk8Zk1zZr1Xx2y9Zp0yH6l6S",
- 0, "2025-12-23 10:00:00", "2025-12-23 10:00:00"),
+ "$2b$12$nh5EA8F9Gamwrw6phaY7KuVRp.mgLh/MQkMlBp0ohvtv3bS3H9QNC",
+ 1, "2025-12-23 10:00:00", "2025-12-23 10:00:00"),
 
 ("US0004", "RL0001", "Riko Hartono", "rikohartono@example.com",
- "$2y$10$wH8kZ9N6X4FQqYy6G3U1Ue4K5A2mJYk8Zk1zZr1Xx2y9Zp0yH6l6S",
- 0, "2020-12-30 11:00:00", "2020-12-30 11:00:00"),
+ "$2b$12$nh5EA8F9Gamwrw6phaY7KuVRp.mgLh/MQkMlBp0ohvtv3bS3H9QNC",
+ 1, "2020-12-30 11:00:00", "2020-12-30 11:00:00"),
 
 ("US0005", "RL0001", "Andi Wijaya", "andiwijaya@example.com",
- "$2y$10$wH8kZ9N6X4FQqYy6G3U1Ue4K5A2mJYk8Zk1zZr1Xx2y9Zp0yH6l6S",
- 0, "2021-12-20 15:00:00", "2021-12-20 15:00:00");
+ "$2b$12$nh5EA8F9Gamwrw6phaY7KuVRp.mgLh/MQkMlBp0ohvtv3bS3H9QNC",
+ 1, "2021-12-20 15:00:00", "2021-12-20 15:00:00");
 
 -- =========================
 -- SOP STEPS

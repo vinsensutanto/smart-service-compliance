@@ -9,6 +9,7 @@ from paho.mqtt import client as mqtt_client
 
 # --- Simulation Config ---
 rp_id = "RP0002"
+# session id buat ngebedain, perlu dipindahin ke api server
 session_id = f"{datetime.now().strftime('%Y-%m-%d-%H:%M:%S')}-{rp_id}"
 audio_file = "data/audio/pendaftaranmbca_laki_tidakfasih.mp3"
 chunk_length_ms = 3000

@@ -8,10 +8,10 @@ from app.models.user import User
 from app.services.audio_ingestor import start_ingestor
 from app.routes.service import service_bp
 from app.routes.sop_page_routes import sop_page_bp
-from app.routes.auth import auth_api_bp 
 from app.auth.routes import auth_web_bp
 from app.cs.routes import cs_bp
 from app.spv.routes import spv_bp
+from app.routes import checklist_routes
 
 def create_app(start_services=False):
     app = Flask(
@@ -34,8 +34,6 @@ def create_app(start_services=False):
         return db.session.get(User, user_id)
 
     # === Register routes ===
-    # app.register_blueprint(auth_bp)
-    app.register_blueprint(auth_api_bp, url_prefix="/api")
     app.register_blueprint(auth_web_bp)
     app.register_blueprint(service_bp, url_prefix="/api")
     app.register_blueprint(sop_page_bp)

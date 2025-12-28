@@ -16,61 +16,53 @@ service_bp = Blueprint("service", __name__)
 # =====================================================
 # DEBUG: Audio → Transcript → Service → SOP
 # =====================================================
-@service_bp.route("/debug-audio-sop", methods=["POST"])
-def debug_audio_sop():
-    if "audio" not in request.files:
-        return jsonify({"error": "audio file required"}), 400
+# @service_bp.route("/debug-audio-sop", methods=["POST"])
+# def debug_audio_sop():
+#     if "audio" not in request.files:
+#         return jsonify({"error": "audio file required"}), 400
 
-    audio = request.files["audio"]
+#     audio = request.files["audio"]
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
-        audio.save(tmp.name)
-        tmp_path = tmp.name
+#     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
+#         audio.save(tmp.name)
+#         tmp_path = tmp.name
 
-    try:
-        model = get_whisper_model()
-        result = model.transcribe(tmp_path, language="id", verbose=False)
-        transcript = result.get("text", "").strip()
-    finally:
-        os.remove(tmp_path)
+#     try:
+#         model = get_whisper_model()
+#         result = model.transcribe(tmp_path, language="id", verbose=False)
+#         transcript = result.get("text", "").strip()
+#     finally:
+#         os.remove(tmp_path)
 
-    if not transcript:
-        return jsonify({
-            "transcript": "",
-            "service_detected": None,
-            "confidence": 0,
-            "sop": None
-        })
+#     if not transcript:
+#         return jsonify({
+#             "transcript": "",
+#             "service_detected": None,
+#             "confidence": 0,
+#             "sop": None
+#         })
 
-    service_id, service_name, confidence, keywords = detect_service(transcript)
+#     service_id, service_name, confidence, keywords = detect_service(transcript)
 
-    if not service_id:
-        return jsonify({
-            "transcript": transcript,
-            "service_detected": None,
-            "confidence": 0,
-            "matched_keywords": [],
-            "sop": None
-        })
+#     if not service_id:
+#         return jsonify({
+#             "transcript": transcript,
+#             "service_detected": None,
+#             "confidence": 0,
+#             "matched_keywords": [],
+#             "sop": None
+#         })
 
-    sop = load_sop_by_service_id(service_id)
+#     sop = load_sop_by_service_id(service_id)
 
-    return jsonify({
-        "transcript": transcript,
-        "service_id": service_id,
-        "service_name": service_name,
-        "confidence": confidence,
-        "matched_keywords": keywords,
-        "sop": sop
-    })
-
-@service_bp.route("/debug-user", methods=["GET"])
-def debug_user():
-    return {
-        "is_authenticated": current_user.is_authenticated,
-        "user_id": getattr(current_user, "user_id", None),
-        "role_id": getattr(current_user, "role_id", None)
-    }
+#     return jsonify({
+#         "transcript": transcript,
+#         "service_id": service_id,
+#         "service_name": service_name,
+#         "confidence": confidence,
+#         "matched_keywords": keywords,
+#         "sop": sop
+#     })
 
 
 # =====================================================

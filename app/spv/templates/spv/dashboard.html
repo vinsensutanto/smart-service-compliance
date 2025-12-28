@@ -64,8 +64,6 @@
     <div class="col-md-4">
       <div class="card p-3">
         <span class="stats-label">Active Workstations</span>
-        {% set active_ws = stations|selectattr('0.is_active', 'equalto',
-        1)|list|length %}
         <h2 class="fw-bold text-success mb-0">
           {{ active_ws }}
           <small class="h6 text-muted">/ {{ stations|length }}</small>
@@ -98,7 +96,7 @@
                 </tr>
               </thead>
               <tbody>
-                {% for station, user in stations %}
+                {% for station, session, user in stations %}
                 <tr>
                   <td class="ps-4">
                     <div class="fw-bold text-dark">
@@ -117,10 +115,10 @@
                     {% endif %}
                   </td>
                   <td>
-                    {% if station.is_active %}
-                    <span class="status-badge bg-success-soft">ACTIVE</span>
+                    {% if session %}
+                      <span class="status-badge bg-success-soft">ACTIVE</span>
                     {% else %}
-                    <span class="status-badge bg-secondary-soft">IDLE</span>
+                      <span class="status-badge bg-secondary-soft">IDLE</span>
                     {% endif %}
                   </td>
                   <td class="pe-4 small text-muted">{{ station.location }}</td>

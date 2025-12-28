@@ -15,7 +15,7 @@ def start_session(
     start_time=None
 ) -> Optional[str]:
 
-    rp_id = rp_id.lower()
+    rp_id = rp_id.upper()
     start_time = start_time or datetime.now(timezone.utc)
 
     # resolve workstation
@@ -74,7 +74,7 @@ def end_session_by_rp(
     reason=None
 ) -> Optional[str]:
 
-    rp_id = rp_id.lower()
+    rp_id = rp_id.upper()
     end_time = end_time or datetime.now(timezone.utc)
 
     record = (
@@ -108,7 +108,7 @@ def end_session_by_rp(
 
 
 def get_active_session_by_rp(rp_id: str) -> Optional[str]:
-    rp_id = rp_id.lower()
+    rp_id = rp_id.upper()
 
     record = (
         db.session.query(ServiceRecord)

@@ -25,7 +25,7 @@ def handle_kws_event(rp_id: str, payload: dict):
         if ts else datetime.now(timezone.utc)
     )
 
-    rp_id = rp_id.lower()
+    rp_id = rp_id.upper()
 
     # ---------------------------------
     # START SESSION
