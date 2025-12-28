@@ -31,28 +31,34 @@ def dashboard():
     initial_payload = None
 
     if active_session:
+        # Get workstation
         workstation = (
             db.session.query(Workstation)
             .filter_by(workstation_id=active_session.workstation_id)
             .first()
         )
 
-        # Fetch real checklist from DB
+        # Fetch all SOP steps for the service
         db_checklist = (
-            db.session.query(ServiceChecklist, SOPStep)
-            .join(SOPStep, ServiceChecklist.step_id == SOPStep.step_id)
-            .filter(ServiceChecklist.service_record_id == active_session.service_record_id)
+            db.session.query(SOPStep, ServiceChecklist)
+            .outerjoin(
+                ServiceChecklist,
+                (ServiceChecklist.step_id == SOPStep.step_id) &
+                (ServiceChecklist.service_record_id == active_session.service_record_id)
+            )
+            .filter(SOPStep.service_id == active_session.service_id)
             .order_by(SOPStep.step_number)
             .all()
         )
 
+        # Build checklist with correct checked status
         checklist = [
             {
-                "step_id": sc.step_id,
-                "description": sc_step.step_description,
-                "checked": sc.is_checked,
+                "step_id": step.step_id,
+                "description": step.step_description,
+                "checked": sc.is_checked if sc else False
             }
-            for sc, sc_step in db_checklist
+            for step, sc in db_checklist
         ]
 
         initial_payload = {
@@ -69,7 +75,6 @@ def dashboard():
         active_session=active_session,
         initial_payload=initial_payload
     )
-
 
 # =========================================
 # SERVICE GUIDELINES (STATIC SOP VIEW)

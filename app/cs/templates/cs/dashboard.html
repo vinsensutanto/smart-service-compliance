@@ -117,21 +117,8 @@
             <i class="bi bi-mic-fill display-1 text-light"></i>
             <p class="text-muted mt-3">Listening for conversation to start...</p>
           </div>
-          <ul id="sop-list-container" class="list-group list-group-flush {% if not active_session %}d-none{% endif %}">
-            {% if active_session %}
-              {% for item in active_session.checklist %}
-                <li class="list-group-item {% if item.checked %}completed{% endif %}">
-                  <div class="step-circle">{{ loop.index }}</div>
-                  <div class="sop-description">
-                    <p class="mb-0 small">{{ item.description }}</p>
-                  </div>
-                  <input class="form-check-input sop-checkbox" type="checkbox"
-                    style="width:20px;height:20px;"
-                    data-step-id="${item.step_id}"
-                    ${isChecked ? "checked" : ""}>
-                </li>
-              {% endfor %}
-            {% endif %}
+          <ul id="sop-list-container" class="list-group list-group-flush d-none">
+            <!-- JS will fill this -->
           </ul>
         </div>
 
@@ -209,7 +196,8 @@
 <script>
   const socket = io();
   let currentSessionId = "{{ active_session.session_id if active_session else '' }}";
-  let sopState = {}; // step_id => true/false
+  let sopState = {};   // step_id => true/false
+  let fullSOP = [];    // full SOP descriptions, keeps original text
 
   // Attach delegated listener once on DOMContentLoaded
   document.addEventListener("DOMContentLoaded", () => {
@@ -220,13 +208,11 @@
       if (e.target.classList.contains("sop-checkbox")) {
         const stepId = e.target.dataset.stepId;
         const isChecked = e.target.checked;
-        console.log("Checkbox clicked:", stepId, isChecked);
         toggleStep(stepId, isChecked);
       }
     });
   });
 
-  // Handle incoming SOP updates from backend
   socket.on("sop_update", (data) => {
     console.log("Payload received:", data);
     updateUI(data);
@@ -236,6 +222,19 @@
     if (!payload.sop || payload.sop.length === 0) return;
 
     currentSessionId = payload.session_id || payload.service_record_id || payload.id;
+
+    // Save full SOP only on first load
+    if (fullSOP.length === 0) {
+      fullSOP = payload.sop.map(item => ({ ...item }));
+    }
+
+    // Build sopState for any missing entries
+    payload.sop.forEach(item => {
+      if (!(item.step_id in sopState)) {
+        sopState[item.step_id] = item.checked;
+      }
+    });
+
     const sessionIndicator = document.getElementById("session-indicator");
     sessionIndicator.innerHTML = currentSessionId
       ? `<span class="badge bg-success p-2 shadow-sm animate-pulse"><i class="bi bi-record-circle-fill me-1"></i> ACTIVE: ${currentSessionId}</span>`
@@ -247,14 +246,18 @@
     document.getElementById("service-name-text").innerText = payload.service ? payload.service.toUpperCase() : "DETECTING...";
     document.getElementById("accuracy-val").innerText = `Accuracy: ${(payload.confidence * 100).toFixed(1)}%`;
 
+    renderSOPList();
+  }
+
+  function renderSOPList() {
     const list = document.getElementById("sop-list-container");
     list.innerHTML = "";
     document.getElementById("sop-placeholder").classList.add("d-none");
     list.classList.remove("d-none");
-    document.getElementById("step-count").innerText = payload.sop.length + " Steps";
+    document.getElementById("step-count").innerText = fullSOP.length + " Steps";
 
-    payload.sop.forEach((item, index) => {
-      const isChecked = sopState[item.step_id] ?? item.checked;
+    fullSOP.forEach((item, index) => {
+      const isChecked = sopState[item.step_id] ?? false;
       list.innerHTML += `
         <li class="list-group-item ${isChecked ? "completed" : ""}">
           <div class="step-circle">${index + 1}</div>
@@ -262,7 +265,7 @@
             <p class="mb-0 small ${isChecked ? "text-success" : "text-dark"}">${item.description}</p>
           </div>
           <input class="form-check-input sop-checkbox" type="checkbox" style="width:20px;height:20px;"
-                 data-step-id="${item.step_id}" ${isChecked ? "checked" : ""}>
+                data-step-id="${item.step_id}" ${isChecked ? "checked" : ""}>
         </li>`;
     });
 
@@ -271,9 +274,10 @@
   }
 
   function toggleStep(stepId, isChecked) {
-    console.log("toggleStep called:", stepId, isChecked);
     sopState[stepId] = isChecked;
+    renderSOPList();  // Re-render using fullSOP to preserve descriptions
     updateButtonState();
+
     if (!currentSessionId) return;
     socket.emit("checklist_update", {
       session_id: currentSessionId,
