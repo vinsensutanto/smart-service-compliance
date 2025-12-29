@@ -1,0 +1,233 @@
+{% extends "layouts/app.html" %} {% block content %}
+<style>
+  html,
+  body {
+    height: 100%;
+    background-color: #f8f9fa;
+  }
+
+  /* Menggunakan wrapper yang identik dengan Dashboard Utama agar margin konsisten */
+  .dashboard-wrapper {
+    min-height: calc(100vh - 100px);
+    display: flex;
+    flex-direction: column;
+    padding-top: 1rem; /* Menyamakan py-3 di CS */
+  }
+
+  .card {
+    border-radius: 15px;
+    border: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    background: white;
+    overflow: hidden;
+  }
+
+  .card-header {
+    background-color: white !important;
+    border-bottom: 1px solid #f1f1f1 !important;
+    padding: 1rem 1.25rem !important;
+  }
+
+  .status-badge {
+    padding: 5px 12px;
+    border-radius: 8px;
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+
+  .bg-warning-soft {
+    background-color: #fff3cd;
+    color: #856404;
+  }
+
+  .bg-success-soft {
+    background-color: #e8f5e9;
+    color: #198754;
+  }
+
+  .stats-label {
+    font-size: 0.65rem;
+    color: #adb5bd;
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+
+  /* Button styling yang rapat dan konsisten */
+  .btn-approve {
+    background-color: #198754;
+    color: white;
+    font-weight: 600;
+    font-size: 0.7rem;
+    border-radius: 8px;
+    border: none;
+    padding: 5px 14px;
+    transition: all 0.2s;
+  }
+
+  .btn-approve:hover {
+    background-color: #157347;
+    transform: translateY(-1px);
+  }
+
+  .btn-reject {
+    color: #dc3545;
+    font-weight: 600;
+    font-size: 0.7rem;
+    text-decoration: none;
+  }
+
+  .btn-reject:hover {
+    color: #a71d2a;
+    text-decoration: underline;
+  }
+
+  .table thead th {
+    background-color: #fcfcfc;
+    border-top: none;
+    padding: 0.75rem 1.25rem;
+  }
+</style>
+
+<div class="container py-3 dashboard-wrapper">
+  <div class="row align-items-center mb-3 flex-shrink-0">
+    <div class="col-md-7">
+      <h2 class="fw-bold text-dark mb-1">User Management</h2>
+      <p class="text-muted small mb-0">
+        Review access requests and manage <span class="fw-bold text-primary">Staff Permissions</span>
+      </p>
+    </div>
+    <div class="col-md-5 text-md-end">
+      <div class="d-inline-flex gap-3">
+        <div class="text-end">
+          <span class="stats-label d-block">Pending</span>
+          <h4 class="fw-bold text-warning mb-0">{{ pending_users|length }}</h4>
+        </div>
+        <div class="vr opacity-25"></div>
+        <div class="text-end">
+          <span class="stats-label d-block">Active</span>
+          <h4 class="fw-bold text-success mb-0">{{ active_users|length }}</h4>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h6 class="fw-bold mb-0 text-dark">
+        <i class="bi bi-person-plus-fill text-warning me-2"></i>Access Requests
+      </h6>
+      <span class="badge bg-warning-soft text-warning small px-2 py-1">Action Required</span>
+    </div>
+    
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table align-middle mb-0">
+          <thead>
+            <tr class="stats-label">
+              <th class="ps-4">Staff Name</th>
+              <th>Email Address</th>
+              <th>Status</th>
+              <th class="text-center pe-4">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if pending_users %}
+              {% for user in pending_users %}
+              <tr>
+                <td class="ps-4">
+                  <div class="d-flex align-items-center">
+                    <div class="rounded-circle bg-light d-flex align-items-center justify-content-center me-2" style="width: 30px; height: 30px;">
+                      <i class="bi bi-person text-secondary" style="font-size: 0.9rem;"></i>
+                    </div>
+                    <div>
+                      <div class="fw-bold text-dark small">{{ user.name }}</div>
+                      <small class="text-muted" style="font-size: 0.6rem;">ID: {{ user.user_id }}</small>
+                    </div>
+                  </div>
+                </td>
+                <td class="text-muted small" style="font-size: 0.7rem;">{{ user.email }}</td>
+                <td>
+                  <span class="status-badge bg-warning-soft" style="font-size: 0.65rem;">
+                    <i class="bi bi-hourglass-split me-1"></i>PENDING
+                  </span>
+                </td>
+                <td class="text-center pe-4">
+                  <div class="d-flex justify-content-center align-items-center gap-3">
+                    <form action="{{ url_for('spv.approve_user', user_id=user.user_id) }}" method="POST" class="m-0">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                      <button type="submit" class="btn btn-approve">Approve</button>
+                    </form>
+                    <form action="{{ url_for('spv.reject_user', user_id=user.user_id) }}" method="POST" class="m-0" onsubmit="return confirm('Reject and delete request?')">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                      <button type="submit" class="btn btn-reject btn-sm small">Reject</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            {% else %}
+              <tr>
+                <td colspan="4" class="text-center py-5 text-muted small italic">No pending requests.</td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="card-header">
+      <h6 class="fw-bold mb-0 text-dark">
+        <i class="bi bi-people-fill text-success me-2"></i>Active Staff Officers
+      </h6>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table align-middle mb-0">
+          <thead>
+            <tr class="stats-label">
+              <th class="ps-4">Full Name</th>
+              <th>Email Address</th>
+              <th>Role</th>
+              <th class="pe-4">Account Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if active_users %}
+              {% for user in active_users %}
+              <tr>
+                <td class="ps-4">
+                  <div class="d-flex align-items-center">
+                    <div class="rounded-circle bg-success-soft d-flex align-items-center justify-content-center me-2" style="width: 30px; height: 30px;">
+                      <i class="bi bi-person-check-fill text-success" style="font-size: 0.9rem;"></i>
+                    </div>
+                    <span class="fw-bold text-dark small">{{ user.name }}</span>
+                  </div>
+                </td>
+                <td class="text-muted small" style="font-size: 0.7rem;">{{ user.email }}</td>
+                <td>
+                  <span class="badge bg-light text-primary border fw-normal" style="font-size: 0.65rem;">
+                    {{ user.role.role_name if user.role else 'Customer Service' }}
+                  </span>
+                </td>
+                <td class="pe-4">
+                  <span class="status-badge bg-success-soft" style="font-size: 0.65rem;">
+                    <i class="bi bi-shield-check me-1"></i>ACTIVE
+                  </span>
+                </td>
+              </tr>
+              {% endfor %}
+            {% else %}
+              <tr>
+                <td colspan="4" class="text-center py-4 text-muted small italic">No active officers.</td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

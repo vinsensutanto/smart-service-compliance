@@ -5,7 +5,7 @@
     style="min-height: 85vh"
   >
     <div class="col-md-6">
-      <div class="card shadow-lg border-0">
+      <div class="card shadow-lg border-0" style="border-radius: 15px">
         <div class="card-body p-5">
           <div class="text-center mb-4">
             <i class="bi bi-person-plus text-primary fs-1"></i>
@@ -15,41 +15,62 @@
             </p>
           </div>
 
-          <form action="#">
+          <form action="{{ url_for('auth_web.request_access') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
             <div class="mb-3">
               <label class="form-label fw-bold">Full Name</label>
               <input
+                name="name"
                 type="text"
                 class="form-control form-control-lg"
                 placeholder="Full Name"
+                required
               />
             </div>
 
             <div class="mb-3">
               <label class="form-label fw-bold">Email Address</label>
               <input
+                name="email"
                 type="email"
                 class="form-control form-control-lg"
                 placeholder="Email Address"
+                required
               />
             </div>
 
-            <div class="mb-3">
-              <label class="form-label fw-bold">Purpose of Access</label>
-              <textarea
-                class="form-control form-control-lg"
-                placeholder="Explain why..."
-              ></textarea>
+            <div class="mb-4">
+              <label class="form-label fw-bold">Create Password</label>
+              <div class="input-group">
+                <input
+                  name="password"
+                  type="password"
+                  id="pwInput"
+                  class="form-control form-control-lg"
+                  placeholder="Min. 6 characters"
+                  required
+                />
+                <button
+                  class="btn btn-outline-secondary"
+                  type="button"
+                  onclick="togglePw()"
+                >
+                  <i class="bi bi-eye" id="pwIcon"></i>
+                </button>
+              </div>
             </div>
 
             <div class="d-grid mb-3">
-              <button
-                type="button"
-                class="btn btn-primary btn-lg fw-bold"
-                onclick="alert('Request Sent!')"
-              >
+              <button type="submit" class="btn btn-primary btn-lg fw-bold">
                 Submit Request
               </button>
+            </div>
+
+            <div class="text-center">
+              <p class="small text-muted">
+                Already have an account? <a href="/login">Login</a>
+              </p>
             </div>
           </form>
         </div>
@@ -57,4 +78,19 @@
     </div>
   </div>
 </div>
+
+<script>
+  // Fungsi untuk intip password
+  function togglePw() {
+    const pwInput = document.getElementById("pwInput");
+    const pwIcon = document.getElementById("pwIcon");
+    if (pwInput.type === "password") {
+      pwInput.type = "text";
+      pwIcon.classList.replace("bi-eye", "bi-eye-slash");
+    } else {
+      pwInput.type = "password";
+      pwIcon.classList.replace("bi-eye-slash", "bi-eye");
+    }
+  }
+</script>
 {% endblock %}

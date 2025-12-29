@@ -1,7 +1,8 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_user, logout_user
+from app.extensions import db
 from app.models import User, Role
-from app.utils.security import verify_password
+from app.utils.security import verify_password, hash_password
 from .forms import LoginForm
 
 auth_web_bp = Blueprint(
@@ -63,8 +64,52 @@ def logout():
     flash("You have been logged out.", "success")
     return redirect(url_for("auth_web.login"))
 
-@auth_web_bp.route("/request-access")
+@auth_web_bp.route("/request-access", methods=["GET", "POST"])
 def request_access():
+    if request.method == "POST":
+        name = request.form.get("name")
+        email = request.form.get("email")
+        password = request.form.get("password") # Ambil password dari form
+
+        if not name or not email or not password:
+            flash("All fields are required!", "error")
+            return redirect(url_for("auth_web.request_access"))
+        
+        if not password or len(password) < 6:
+            flash("Password must be at least 6 characters long!", "error")
+            return redirect(url_for("auth_web.request_access"))
+
+        existing_user = User.query.filter_by(email=email).first()
+        if existing_user:
+            flash("Email already registered.", "warning")
+            return redirect(url_for("auth_web.request_access"))
+
+        # Generate User ID (US + 4 digit)
+        user_count = User.query.count()
+        new_id = f"US{str(user_count + 1).zfill(4)}"
+
+        # Hash password sebelum simpan ke DB
+        hashed_pw = hash_password(password)
+
+        new_user = User(
+            user_id=new_id,
+            role_id="RL0001", # Default: Customer Service
+            name=name,
+            email=email,
+            password=hashed_pw,
+            is_active=0 # Tetap non-aktif sampai di-approve SPV
+        )
+
+        try:
+            db.session.add(new_user)
+            db.session.commit()
+            flash("Request sent! Account will be active after Supervisor approval.", "success")
+            return redirect(url_for("auth_web.login"))
+        except Exception as e:
+            db.session.rollback()
+            flash("Database error. Please try again.", "error")
+            print(f"Error: {e}")
+
     return render_template("request_access.html")
 
 @auth_web_bp.route("/test-trigger-sop")

@@ -5,44 +5,66 @@
   html,
   body {
     height: 100%;
+    /* Mengikuti CS Dashboard: overflow hidden jika ingin fit screen, 
+       tapi jika tabel panjang, biarkan default atau gunakan overflow-y: auto */
     background-color: #f8f9fa;
   }
-  .spv-container {
-    padding: 2rem 0;
+
+  /* Menggunakan wrapper yang sama dengan CS Dashboard untuk konsistensi margin */
+  .dashboard-wrapper {
+    height: calc(100vh - 100px);
+    display: flex;
+    flex-direction: column;
+    padding-top: 1rem; /* Menyamakan py-3 di CS */
   }
+
   .card {
     border-radius: 15px;
     border: none;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    background: white;
   }
+
+  /* Padding tabel dan header disamakan dengan CS Dashboard */
+  .card-header {
+    background-color: white !important;
+    border-bottom: 1px solid #f1f1f1 !important;
+    padding: 1rem 1.25rem !important;
+  }
+
   .status-badge {
     padding: 5px 12px;
     border-radius: 8px;
-    font-size: 0.75rem;
+    font-size: 0.7rem; /* Diperkecil agar konsisten dengan badge CS */
     font-weight: 600;
   }
+
   .bg-success-soft {
     background-color: #e8f5e9;
     color: #198754;
   }
+
   .bg-secondary-soft {
     background-color: #f8f9fa;
     color: #6c757d;
     border: 1px solid #dee2e6;
   }
+
   .alert-card {
     background-color: #fff5f5;
     border-left: 4px solid #dc3545;
     border-radius: 12px;
+    transition: 0.2s;
   }
+
   .stats-label {
-    font-size: 0.7rem;
+    font-size: 0.65rem; /* Menyamakan stats di CS */
     color: #adb5bd;
     text-transform: uppercase;
     font-weight: 700;
     letter-spacing: 0.5px;
   }
-  /* Animasi pulse untuk status aktif */
+
   .pulse-dot {
     height: 8px;
     width: 8px;
@@ -53,70 +75,75 @@
     box-shadow: 0 0 0 rgba(25, 135, 84, 0.4);
     animation: pulse 2s infinite;
   }
+
   @keyframes pulse {
-    0% {
-      transform: scale(0.95);
-      box-shadow: 0 0 0 0 rgba(25, 135, 84, 0.7);
-    }
-    70% {
-      transform: scale(1);
-      box-shadow: 0 0 0 10px rgba(25, 135, 84, 0);
-    }
-    100% {
-      transform: scale(0.95);
-      box-shadow: 0 0 0 0 rgba(25, 135, 84, 0);
-    }
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(25, 135, 84, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(25, 135, 84, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(25, 135, 84, 0); }
   }
+
+  /* Scrollbar custom agar sama dengan CS Dashboard */
+  .scroll-area {
+    overflow-y: auto;
+  }
+  .scroll-area::-webkit-scrollbar { width: 6px; }
+  .scroll-area::-webkit-scrollbar-thumb { background: #e0e0e0; border-radius: 10px; }
 </style>
 
-<div class="container spv-container">
-  <div class="row align-items-center mb-4">
-    <div class="col">
-      <h2 class="fw-bold text-dark mb-0">Supervisor Dashboard</h2>
-      <p class="text-muted small">
-        Monitoring branch operations and procedural compliance.
+<div class="container py-3 dashboard-wrapper">
+  <div class="row align-items-center mb-3 flex-shrink-0">
+    <div class="col-md-7">
+      <h2 class="fw-bold text-dark mb-1">Supervisor Dashboard</h2>
+      <p class="text-muted small mb-0">
+        Branch: <span class="fw-bold text-primary">BCA Syariah - Jakarta</span> | 
+        Status: <span class="badge bg-light text-success border animate-pulse">Live Monitoring</span>
       </p>
+    </div>
+    <div class="col-md-5 text-md-end">
+      <span class="badge bg-light text-secondary border p-2 shadow-sm">
+        <i class="bi bi-clock-fill me-1"></i> LAST UPDATE: {{ current_time if current_time else 'REAL-TIME' }}
+      </span>
     </div>
   </div>
 
-  <div class="row g-3 mb-4">
+  <div class="row g-3 mb-3 flex-shrink-0">
     <div class="col-md-4">
       <div class="card p-3">
         <span class="stats-label">Sessions (Today)</span>
-        <h2 class="fw-bold text-primary mb-0">{{ total_sessions }}</h2>
+        <h3 class="fw-bold text-primary mb-0">{{ total_sessions }}</h3>
       </div>
     </div>
     <div class="col-md-4">
       <div class="card p-3">
         <span class="stats-label">Active Workstations</span>
-        <h2 class="fw-bold text-success mb-0">
-          {{ active_ws }}
-          <small class="h6 text-muted">/ {{ stations|length }}</small>
-        </h2>
+        <h3 class="fw-bold text-success mb-0">
+          {{ active_ws }} <small class="h6 text-muted">/ {{ stations|length }}</small>
+        </h3>
       </div>
     </div>
     <div class="col-md-4">
       <div class="card p-3">
         <span class="stats-label">Manual Overrides</span>
-        <h2 class="fw-bold text-danger mb-0">{{ alerts|length }}</h2>
+        <h3 class="fw-bold text-danger mb-0">{{ alerts|length }}</h3>
       </div>
     </div>
   </div>
 
-  <div class="row g-4">
-    <div class="col-lg-8">
-      <div class="card h-100">
-        <div class="card-header bg-white py-3 px-4 border-0">
-          <h5 class="fw-bold mb-0">Station Monitoring</h5>
+  <div class="row g-3 flex-grow-1 overflow-hidden">
+    <div class="col-lg-8 h-100">
+      <div class="card h-100 d-flex flex-column">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h6 class="fw-bold mb-0 text-dark">Station Monitoring</h6>
+          <span class="badge bg-dark small">{{ stations|length }} Stations</span>
         </div>
-        <div class="card-body p-0">
+        <div class="card-body p-0 scroll-area">
           <div class="table-responsive">
-            <table class="table align-middle mb-0">
+            <table class="table align-middle mb-0 table-hover">
               <thead class="bg-light">
                 <tr class="stats-label">
-                  <th class="ps-4">Station</th>
+                  <th class="ps-4 py-3">Station</th>
                   <th>Service Activity</th>
-                  <th>Operational Status</th>
+                  <th>Status</th>
                   <th class="pe-4">Location</th>
                 </tr>
               </thead>
@@ -124,53 +151,29 @@
                 {% for station, session, user in stations %}
                 <tr>
                   <td class="ps-4">
-                    <div class="fw-bold text-dark">
-                      {{ station.workstation_id }}
-                    </div>
-                    <small class="text-muted">PC: {{ station.pc_id }}</small>
+                    <div class="fw-bold text-dark small">{{ station.workstation_id }}</div>
+                    <small class="text-muted" style="font-size: 0.65rem">PC: {{ station.pc_id }}</small>
                   </td>
                   <td>
                     {% if session %}
-                    <div class="d-flex align-items-center">
-                      <div style="line-height: 1.2">
-                        <div class="d-flex flex-column">
-                          <div class="d-flex align-items-center mb-1">
-                            <div
-                              class="d-flex justify-content-center"
-                              style="width: 25px; margin-right: 8px"
-                            >
-                              <i
-                                class="bi bi-person-circle fs-5 text-primary"
-                                style="line-height: 1"
-                              ></i>
-                            </div>
-                            <span class="fw-semibold">
-                              {{ user.name if user else 'Staff' }}
-                            </span>
-                          </div>
-
-                          <div class="d-flex align-items-center">
-                            <div
-                              class="d-flex justify-content-center"
-                              style="width: 25px; margin-right: 8px"
-                            >
-                              <i
-                                class="bi bi-briefcase text-primary"
-                                style="font-size: 0.9rem"
-                              ></i>
-                            </div>
-                            <small
-                              class="text-primary fw-bold"
-                              style="font-size: 0.7rem"
-                            >
-                              {{ session.service_detected }}
-                            </small>
-                          </div>
+                    <div class="d-flex flex-column">
+                      <div class="d-flex align-items-center mb-1">
+                        <div class="d-flex justify-content-center" style="width: 20px; margin-right: 8px">
+                          <i class="bi bi-person-circle text-primary"></i>
                         </div>
+                        <span class="fw-semibold small">{{ user.name if user else 'Staff' }}</span>
+                      </div>
+                      <div class="d-flex align-items-center">
+                        <div class="d-flex justify-content-center" style="width: 20px; margin-right: 8px">
+                          <i class="bi bi-briefcase text-primary" style="font-size: 0.75rem"></i>
+                        </div>
+                        <small class="text-primary fw-bold" style="font-size: 0.65rem">
+                          {{ session.service_detected }}
+                        </small>
                       </div>
                     </div>
                     {% else %}
-                    <span class="text-muted small">No Active Service</span>
+                    <span class="text-muted small italic" style="font-size: 0.65rem">No Active Service</span>
                     {% endif %}
                   </td>
                   <td>
@@ -179,12 +182,10 @@
                       <span class="pulse-dot"></span>IN-USE
                     </span>
                     {% else %}
-                    <span class="status-badge bg-secondary-soft text-muted"
-                      >AVAILABLE</span
-                    >
+                    <span class="status-badge bg-secondary-soft">AVAILABLE</span>
                     {% endif %}
                   </td>
-                  <td class="pe-4 small text-muted">{{ station.location }}</td>
+                  <td class="pe-4 small text-muted" style="font-size: 0.65rem">{{ station.location }}</td>
                 </tr>
                 {% endfor %}
               </tbody>
@@ -194,43 +195,37 @@
       </div>
     </div>
 
-    <div class="col-lg-4">
-      <div class="card h-100">
-        <div class="card-header bg-white py-3 px-4 border-0">
-          <h5 class="fw-bold mb-0 text-danger">Bypass Alerts</h5>
+    <div class="col-lg-4 h-100">
+      <div class="card h-100 d-flex flex-column">
+        <div class="card-header">
+          <h6 class="fw-bold mb-0 text-danger">Bypass Alerts</h6>
         </div>
-        <div class="card-body px-4">
-          {% if alerts %} {% for record, user in alerts %}
-          <div class="alert-card p-3 mb-3 shadow-sm">
-            <div class="d-flex justify-content-between mb-1">
-              <span class="fw-bold small text-dark"
-                >{{ user.name if user else 'Unknown Staff' }}</span
-              >
-              <small class="text-danger fw-bold"
-                >{{ record.service_record_id }}</small
-              >
+        <div class="card-body px-3 py-3 scroll-area">
+          {% if alerts %} 
+            {% for record, user in alerts %}
+            <div class="alert-card p-3 mb-2 shadow-sm border">
+              <div class="d-flex justify-content-between mb-1">
+                <span class="fw-bold small text-dark">{{ user.name if user else 'Unknown Staff' }}</span>
+                <small class="text-danger fw-bold" style="font-size: 0.6rem">{{ record.service_record_id }}</small>
+              </div>
+              <div class="small text-muted mb-2" style="font-size: 0.65rem">
+                <i class="bi bi-megaphone me-1"></i> {{ record.service_detected }}
+              </div>
+              <div class="p-2 bg-white rounded border mb-2" style="font-size: 0.6rem; font-style: italic;">
+                "{{ record.reason if record.reason else 'No reason provided' }}"
+              </div>
+              <div class="text-end">
+                <small class="text-muted" style="font-size: 0.55rem">
+                  <i class="bi bi-clock me-1"></i>{{ record.start_time.strftime('%H:%M:%S') if record.start_time else '-' }}
+                </small>
+              </div>
             </div>
-            <div class="small text-muted mb-2">
-              <i class="bi bi-megaphone me-1"></i> {{ record.service_detected }}
+            {% endfor %} 
+          {% else %}
+            <div class="text-center py-5">
+              <i class="bi bi-shield-check text-light display-4"></i>
+              <p class="text-muted small mt-2">No procedural overrides today.</p>
             </div>
-            <div class="p-2 bg-white rounded border small italic mb-2">
-              "{{ record.reason if record.reason else 'No reason provided' }}"
-            </div>
-            <div class="text-end">
-              <small class="text-muted" style="font-size: 0.7rem">
-                <i class="bi bi-clock me-1"></i>{{
-                record.start_time.strftime('%H:%M:%S') if record.start_time else
-                '-' }}
-              </small>
-            </div>
-          </div>
-          {% endfor %} {% else %}
-          <div class="text-center py-5">
-            <i class="bi bi-shield-check text-light display-1"></i>
-            <p class="text-muted small mt-2">
-              No procedural overrides detected today.
-            </p>
-          </div>
           {% endif %}
         </div>
       </div>

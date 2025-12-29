@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template
+from flask import Blueprint, render_template, redirect, url_for, flash, request
 from app.extensions import db
 from app.models.user import User
 from app.models.workstation import Workstation
@@ -70,3 +70,34 @@ def dashboard():
         active_ws=active_ws,
         alerts=alerts
     )
+
+
+@spv_bp.route("/user-management")
+def user_management():
+    # Ambil data untuk statistik dan tabel
+    all_users = User.query.all()
+    pending_users = User.query.filter_by(is_active=0).all()
+    active_users = User.query.filter_by(is_active=1).all()
+    
+    return render_template("spv/user-management.html", 
+                           all_users=all_users, 
+                           pending_users=pending_users, 
+                           active_users=active_users)
+
+@spv_bp.route("/approve-user/<user_id>", methods=["POST"])
+def approve_user(user_id):
+    user = User.query.get(user_id)
+    if user:
+        user.is_active = 1
+        db.session.commit()
+        flash(f"User {user.name} has been approved!", "success")
+    return redirect(url_for('spv.user_management'))
+
+@spv_bp.route("/reject-user/<user_id>", methods=["POST"])
+def reject_user(user_id):
+    user = User.query.get(user_id)
+    if user:
+        db.session.delete(user) # Langsung menghapus dari database
+        db.session.commit()
+        flash(f"Access request for {user.name} has been removed.", "danger")
+    return redirect(url_for('spv.user_management'))
