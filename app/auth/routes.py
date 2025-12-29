@@ -3,6 +3,10 @@ from flask_login import login_user, logout_user
 from app.models import User, Role
 from app.utils.security import verify_password
 from .forms import LoginForm
+from app.services.session_manager import attach_user_to_active_session
+import os
+from app.extensions import db
+from app.models.workstation import Workstation
 
 auth_web_bp = Blueprint(
     "auth_web",
@@ -14,35 +18,36 @@ auth_web_bp = Blueprint(
 def index():
     return redirect(url_for('auth_web.login'))
 
-@auth_web_bp.route("/login", methods=["GET", "POST"])
+@auth_web_bp.route('/login', methods=["GET", "POST"])
 def login():
     form = LoginForm()
     if form.validate_on_submit():
         email = form.email.data
         password = form.password.data
-        print(f"[DEBUG] Login attempt: email={email}, password={'*'*len(password)}")  # masked password
+        print(f"[DEBUG] Login attempt: email={email}, password={'*'*len(password)}")
 
         user = User.query.filter_by(email=email).first()
-
-        if not user:
-            print("[DEBUG] User not found")
-        else:
-            print(f"[DEBUG] Found user: {user.email}, is_active={user.is_active}, hashed_pw={user.password}")
 
         if user and user.is_active and verify_password(user.password, password):
             login_user(user)
 
-            # ambil role name dari tabel roles
             role = Role.query.filter_by(role_id=user.role_id).first()
             role_name = role.role_name if role else None
-            
+
             print(f"[DEBUG] Login success, role={role_name}")
             flash("Login successful! Welcome back!", "success")
 
-            # redirect sesuai role
-            if role_name == "Customer Service":       # RL0001
+            # Attach logged-in user to active session (if any)
+            pc_id = os.getenv("PC_ID")
+            workstation = db.session.query(Workstation).filter_by(pc_id=pc_id).first()
+            if workstation:
+                rp_id = workstation.rpi_id
+                attach_user_to_active_session(rp_id=rp_id, user_id=user.user_id)
+
+            # Redirect by role
+            if role_name == "Customer Service":
                 return redirect("/cs/dashboard")
-            elif role_name == "Supervisor":           # RL0002
+            elif role_name == "Supervisor":
                 return redirect("/spv/dashboard")
             else:
                 flash("Role not recognized", "error")
@@ -52,7 +57,6 @@ def login():
         print("[DEBUG] Invalid credentials or inactive account")
 
     elif request.method == "POST":
-        # If form.validate_on_submit() fails (like missing CSRF token)
         print(f"[DEBUG] Form validation failed: {form.errors}")
 
     return render_template("login.html", form=form)

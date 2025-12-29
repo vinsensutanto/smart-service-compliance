@@ -279,6 +279,7 @@
 <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 <script>
     const socket = io();
+    const myRpId = "{{ workstation.rpi_id if workstation else '' }}";
     let currentSessionId = "{{ active_session.session_id if active_session else '' }}";
     let sopState = {};   // step_id => true/false
     let fullSOP = [];    // full SOP descriptions, keeps original text
@@ -297,25 +298,36 @@
       });
     });
 
+    // ===========================
+    // SOCKET.IO EVENT LISTENERS
+    // ===========================
+
     socket.on("sop_update", (data) => {
+      if (data.rp_id !== myRpId) return; // ignore updates from other RPs
       console.log("Payload received:", data);
       updateUI(data);
     });
 
     socket.on("session_started", (payload) => {
+      if (payload.rp_id !== myRpId) return; // ignore other RPs
       alert(`Session started\nSession ID: ${payload.session_id}`);
       updateUI(payload);
     });
 
     socket.on("session_ended", (data) => {
+      if (data.rp_id !== myRpId) return; // ignore other RPs
       alert(`Session ended successfully.\nSession ID: ${data.session_id}`);
       location.reload();
     });
 
     socket.on("session_end_rejected", (data) => {
+      if (data.rp_id && data.rp_id !== myRpId) return; // ignore other RPs
       alert(data.message || "Session cannot be ended. Checklist incomplete.");
     });
 
+    // ===========================
+    // UI UPDATE LOGIC
+    // ===========================
 
     function updateUI(payload) {
       if (!payload) return;
@@ -335,7 +347,7 @@
       document.getElementById("ai-waiting").classList.add("d-none");
       document.getElementById("ai-detected").classList.remove("d-none");
 
-      // 🔥 FIX #1 — SERVICE NAME
+      // SERVICE NAME
       if (payload.service) {
         document.getElementById("service-name-text").innerText =
           payload.service.toUpperCase();
@@ -347,13 +359,11 @@
           `Accuracy: ${(payload.confidence * 100).toFixed(1)}%`;
       }
 
-      // SOP may come later
+      // SOP
       if (!payload.sop) return;
-
       if (fullSOP.length === 0) {
         fullSOP = payload.sop.map(item => ({ ...item }));
       }
-
       payload.sop.forEach(item => {
         if (!(item.step_id in sopState)) {
           sopState[item.step_id] = item.checked;
@@ -389,7 +399,7 @@
 
     function toggleStep(stepId, isChecked) {
       sopState[stepId] = isChecked;
-      renderSOPList();  // Re-render using fullSOP to preserve descriptions
+      renderSOPList();
       updateButtonState();
 
       if (!currentSessionId) return;
@@ -397,6 +407,7 @@
         session_id: currentSessionId,
         step_id: stepId,
         checked: isChecked,
+        rp_id: myRpId  // emit RP for server filtering
       });
     }
 
@@ -440,7 +451,7 @@
       }
 
       socket.emit("session_end", {
-        rp_id: "{{ workstation.rpi_id if workstation else '' }}",
+        rp_id: myRpId,
         reason: finalReasonValue
       });
     }

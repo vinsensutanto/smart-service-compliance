@@ -42,6 +42,7 @@ def finalize_session(
     if record.end_time:
         return
 
+    # Determine normal flow or manual termination
     if manual_termination:
         record.is_normal_flow = False
         record.reason = reason or "Manual termination by supervisor"
@@ -54,7 +55,6 @@ def finalize_session(
             )
             .count()
         )
-
         if unchecked == 0:
             record.is_normal_flow = True
             record.reason = None
@@ -62,34 +62,38 @@ def finalize_session(
             record.is_normal_flow = False
             record.reason = "SOP not completed"
 
+    # End time and duration
     record.end_time = datetime.now(timezone.utc)
-
     if record.start_time:
         start = record.start_time
         end = record.end_time
-
         if start.tzinfo is None:
             start = start.replace(tzinfo=timezone.utc)
         if end.tzinfo is None:
             end = end.replace(tzinfo=timezone.utc)
-
         record.duration = int((end - start).total_seconds())
 
+    # Concatenate all text chunks
     chunks = (
         db.session.query(ServiceChunk.text_chunk)
         .filter_by(service_record_id=service_record_id)
         .order_by(ServiceChunk.created_at.asc())
         .all()
     )
-
     record.text = " ".join(c.text_chunk for c in chunks)
 
     db.session.commit()
 
+    # Detailed logging
     print(
-        f"[SESSION FINALIZED] {service_record_id} "
-        f"duration={record.duration}s "
-        f"normal={record.is_normal_flow}"
+        f"[SESSION FINALIZED] SR={record.service_record_id} "
+        f"USER={record.user_id} "
+        f"SERVICE={record.service_id} "
+        f"DURATION={record.duration}s "
+        f"NORMAL={record.is_normal_flow} "
+        f"REASON={record.reason} "
+        f"CHUNKS={len(chunks)} "
+        f"TEXT_LEN={len(record.text or '')}"
     )
 
 # =========================================

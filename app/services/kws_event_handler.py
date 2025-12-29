@@ -11,6 +11,7 @@ from app.services.payload_builder import build_session_payload
 from app.routes.checklist_routes import initialize_checklist
 from app.models.service_record import ServiceRecord
 from app.extensions import db
+from app.services.session_manager import attach_user_to_active_session
 
 # =====================================
 # EVENT NORMALIZATION
@@ -42,10 +43,13 @@ def handle_kws_event(rp_id: str, payload: dict):
             print(f"[KWS] Session already active SR={active} rp={rp_id}")
             return
 
+        # Optionally, look up user assigned to RP (if you maintain such mapping)
+        user_id_for_rp = None  # <- implement your logic if you want to pre-attach
+
         sr_id = start_session(
             session_id=None,
             rp_id=rp_id,
-            user_id=None,
+            user_id=user_id_for_rp,
             start_time=timestamp
         )
 
@@ -61,6 +65,7 @@ def handle_kws_event(rp_id: str, payload: dict):
             
             payload = build_session_payload(sr_id)
             if payload:
+                payload["rp_id"] = rp_id
                 socketio.emit("session_started", payload)
                 socketio.emit("sop_update", payload)
 
@@ -87,7 +92,8 @@ def handle_kws_event(rp_id: str, payload: dict):
                 "session_ended",
                 {
                     "session_id": sr_id,
-                    "reason": "Auto-ended (KWS selesai)"
+                    "reason": "Auto-ended (KWS selesai)",
+                    "rp_id": rp_id
                 }
             )
         else:

@@ -8,34 +8,33 @@ from app.models.service_record import ServiceRecord
 from app.models.workstation import Workstation
 from app.models.service_checklist import ServiceChecklist
 from app.services.session_store import finalize_session
+from flask_login import current_user
 
 
 # ======================================================
 # START SESSION
 # ======================================================
-
 def start_session(
     session_id: str,
     rp_id: str,
     user_id: Optional[str] = None,
     start_time=None
 ) -> Optional[str]:
-
+    """
+    Start a new session for a workstation (RP). 
+    Only attach user_id if provided explicitly.
+    Prevents multiple active sessions per workstation.
+    """
     rp_id = rp_id.upper()
     start_time = start_time or datetime.now(timezone.utc)
 
-    # Resolve workstation explicitly
-    workstation = (
-        db.session.query(Workstation)
-        .filter(Workstation.rpi_id == rp_id)
-        .first()
-    )
-
+    # Resolve workstation
+    workstation = db.session.query(Workstation).filter_by(rpi_id=rp_id).first()
     if not workstation:
         print(f"[SESSION] Unknown rp_id={rp_id}")
         return None
 
-    # Prevent double active session per workstation
+    # Check for existing active session
     active = (
         db.session.query(ServiceRecord)
         .filter(
@@ -47,19 +46,18 @@ def start_session(
 
     if active:
         print(f"[SESSION] Already active SR={active.service_record_id}")
+        # Attach user only if explicitly provided
+        if active.user_id is None and user_id is not None:
+            active.user_id = user_id
+            db.session.commit()
+            print(f"[SESSION] Attached user {user_id} to active SR={active.service_record_id}")
         return active.service_record_id
 
     # Generate new service_record_id
-    last = (
-        db.session.query(ServiceRecord)
-        .order_by(ServiceRecord.service_record_id.desc())
-        .first()
-    )
+    last = db.session.query(ServiceRecord).order_by(ServiceRecord.service_record_id.desc()).first()
+    new_id = ServiceRecord.generate_id(last.service_record_id if last else None)
 
-    new_id = ServiceRecord.generate_id(
-        last.service_record_id if last else None
-    )
-
+    # Create new session record
     record = ServiceRecord(
         service_record_id=new_id,
         workstation_id=workstation.workstation_id,
@@ -69,9 +67,7 @@ def start_session(
 
     db.session.add(record)
     db.session.commit()
-
-    print(f"[SESSION] Started SR={new_id} rp={rp_id}")
-
+    print(f"[SESSION] Started SR={new_id} rp={rp_id} user_id={user_id}")
     return new_id
 
 
@@ -183,3 +179,29 @@ def is_checklist_complete(service_record_id: str) -> bool:
     )
 
     return total == checked
+
+def attach_user_to_active_session(rp_id: str, user_id: str):
+    from app.models.service_record import ServiceRecord
+    from app.models.workstation import Workstation
+
+    print(f"[DEBUG] Attaching user {user_id} to active session on RP={rp_id}")
+
+    # look for the latest session for this RP without user_id
+    record = (
+        db.session.query(ServiceRecord)
+        .join(Workstation, ServiceRecord.workstation_id == Workstation.workstation_id)
+        .filter(
+            Workstation.rpi_id == rp_id,
+            ServiceRecord.user_id.is_(None)
+        )
+        .order_by(ServiceRecord.start_time.desc())
+        .first()
+    )
+
+    if not record:
+        print(f"[DEBUG] No session found to attach user for RP={rp_id}")
+        return None
+
+    record.user_id = user_id
+    db.session.commit()
+    print(f"[DEBUG] User {user_id} attached to SR={record.service_record_id}")

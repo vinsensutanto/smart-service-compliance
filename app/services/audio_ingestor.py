@@ -169,6 +169,7 @@ def process_audio_chunk(rp_id: str, payload: dict):
                 from app.extensions import socketio
 
                 payload = build_session_payload(sr_id)
+                payload["rp_id"] = rp_id
                 socketio.emit("service_locked", payload)
                 socketio.emit("sop_update", payload)
 
