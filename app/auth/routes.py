@@ -10,6 +10,10 @@ auth_web_bp = Blueprint(
     template_folder="templates"
 )
 
+@auth_web_bp.route('/')
+def index():
+    return redirect(url_for('auth_web.login'))
+
 @auth_web_bp.route("/login", methods=["GET", "POST"])
 def login():
     form = LoginForm()
