@@ -53,7 +53,6 @@ def dashboard():
             .all()
         )
 
-        # Build checklist with correct checked status
         checklist = [
             {
                 "step_id": step.step_id,
@@ -117,10 +116,25 @@ def my_history():
 def handle_manual_end(data):
     rp_id = data.get("rp_id")
     reason = data.get("reason")
-    sr_id = session_manager.end_session_by_rp(rp_id, reason=reason)
-    
-    if sr_id:
-        sr = ServiceRecord.query.filter_by(service_record_id=sr_id).first()
-        sr.is_normal_flow = 0
-        db.session.commit()
-        socketio.emit("session_ended", {"session_id": sr_id, "reason": reason})
+
+    sr_id = session_manager.end_session_by_rp(
+        rp_id=rp_id,
+        reason=reason
+    )
+
+    if not sr_id:
+        socketio.emit(
+            "session_end_rejected",
+            {
+                "message": "Session cannot be ended"
+            }
+        )
+        return
+
+    socketio.emit(
+        "session_ended",
+        {
+            "session_id": sr_id,
+            "reason": reason
+        }
+    )

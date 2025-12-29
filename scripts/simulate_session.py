@@ -112,13 +112,13 @@ for idx, chunk in enumerate(chunks, start=1):
 
 print("[SIM] Sending KWS SELESAI")
 
-# client.publish(
-#     TOPIC_KWS,
-#     payload=json.dumps({
-#         "event": "selesai"
-#     }),
-#     qos=1
-# )
+client.publish(
+    TOPIC_KWS,
+    payload=json.dumps({
+        "event": "selesai"
+    }),
+    qos=1
+)
 
 time.sleep(1)
 

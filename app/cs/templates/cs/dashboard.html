@@ -1,6 +1,4 @@
-{% extends "layouts/app.html" %}
-
-{% block content %}
+{% extends "layouts/app.html" %} {% block content %}
 <style>
   html,
   body {
@@ -81,8 +79,13 @@
     animation: pulse 2s infinite;
   }
   @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.7; }
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
   }
 </style>
 
@@ -92,8 +95,12 @@
     <div class="col-md-7">
       <h2 class="fw-bold text-dark mb-1">Compliance Assistant</h2>
       <p class="text-muted small mb-0">
-        Logged in: <span class="fw-bold text-primary">{{ current_user.name }}</span> |
-        Location: <span class="badge bg-light text-primary border">{{ workstation.location if workstation else 'Front Desk' }}</span>
+        Logged in:
+        <span class="fw-bold text-primary">{{ current_user.name }}</span> |
+        Location:
+        <span class="badge bg-light text-primary border"
+          >{{ workstation.location if workstation else 'Front Desk' }}</span
+        >
       </p>
     </div>
     <div class="col-md-5 text-md-end" id="session-indicator">
@@ -107,7 +114,9 @@
     <!-- LEFT PANEL -->
     <div class="col-md-8 h-100">
       <div class="card border-0 shadow-sm sop-card-container">
-        <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center flex-shrink-0">
+        <div
+          class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center flex-shrink-0"
+        >
           <h5 class="fw-bold mb-0 text-dark">Standard Operating Procedure</h5>
           <span id="step-count" class="badge bg-dark">0 Steps</span>
         </div>
@@ -115,24 +124,43 @@
         <div class="card-body p-0 sop-scroll-area">
           <div id="sop-placeholder" class="text-center py-5">
             <i class="bi bi-mic-fill display-1 text-light"></i>
-            <p class="text-muted mt-3">Listening for conversation to start...</p>
+            <p class="text-muted mt-3">
+              Listening for conversation to start...
+            </p>
           </div>
-          <ul id="sop-list-container" class="list-group list-group-flush d-none">
+          <ul
+            id="sop-list-container"
+            class="list-group list-group-flush d-none"
+          >
             <!-- JS will fill this -->
           </ul>
         </div>
 
         <!-- FOOTER -->
-        <div id="action-footer" class="card-footer bg-white border-top p-3 d-none flex-shrink-0">
-          <button id="main-end-btn" class="btn btn-outline-danger btn-lg w-100 fw-bold opacity-50" onclick="handleEndSession()" disabled>
+        <div
+          id="action-footer"
+          class="card-footer bg-white border-top p-3 d-none flex-shrink-0"
+        >
+          <button
+            id="main-end-btn"
+            class="btn btn-outline-danger btn-lg w-100 fw-bold opacity-50"
+            onclick="handleEndSession()"
+            >
+            <!--disabled-->
             <i class="bi bi-stop-circle me-2"></i> Stop Session Manually
           </button>
           <div id="btn-hint" class="text-center mt-2 px-3">
             <div class="text-danger fw-bold mb-1" style="font-size: 0.7rem">
-              <i class="bi bi-exclamation-octagon-fill me-1"></i> EMERGENCY OVERRIDE
+              <i class="bi bi-exclamation-octagon-fill me-1"></i> EMERGENCY
+              OVERRIDE
             </div>
-            <p class="text-muted mb-0" style="font-size: 0.6rem; line-height: 1.2">
-              <span class="text-danger">WARNING:</span> Use only for AI failure or human error. Manual stops are <b>flagged</b> and will <b>impact</b> your performance score.
+            <p
+              class="text-muted mb-0"
+              style="font-size: 0.6rem; line-height: 1.2"
+            >
+              <span class="text-danger">WARNING:</span> Use only for AI failure
+              or human error. Manual stops are <b>flagged</b> and will
+              <b>impact</b> your performance score.
             </p>
           </div>
         </div>
@@ -143,16 +171,41 @@
     <div class="col-md-4">
       <div class="card border-0 shadow-sm mb-3" style="border-radius: 15px">
         <div class="card-body p-4 text-center">
-          <h6 class="text-secondary fw-bold small text-uppercase mb-4">Detection Accuracy</h6>
-          <div id="ai-waiting" class="{% if active_session %}d-none{% else %}py-4{% endif %}">
-            <div class="spinner-border spinner-border-sm text-primary mb-2"></div>
+          <h6 class="text-secondary fw-bold small text-uppercase mb-4">
+            Detection Accuracy
+          </h6>
+          <div
+            id="ai-waiting"
+            class="{% if active_session %}d-none{% else %}py-4{% endif %}"
+          >
+            <div
+              class="spinner-border spinner-border-sm text-primary mb-2"
+            ></div>
             <p class="text-muted small italic">Analyzing interaction...</p>
           </div>
-          <div id="ai-detected" class="{% if active_session %}d-block{% else %}d-none{% endif %} animate-pulse">
-            <i class="bi bi-mic-fill text-primary mb-3" style="font-size: 2.5rem"></i>
-            <h5 class="fw-bold mb-1" id="service-name-text">{{ active_session.service_detected.upper() if active_session else '---' }}</h5>
-            <span id="accuracy-val" class="badge bg-info text-white px-3 py-2 rounded-pill mt-2 small">
-              Accuracy: {{ (active_session.confidence * 100)|round(1) if active_session else 0 }}%
+          <div
+            id="ai-detected"
+            class="{% if active_session %}d-block{% else %}d-none{% endif %} animate-pulse"
+          >
+            <i
+              class="bi bi-mic-fill text-primary mb-3"
+              style="font-size: 2.5rem"
+            ></i>
+            <h5 class="fw-bold mb-1" id="service-name-text">
+              {{ active_session.service_detected.upper() if active_session and
+              active_session.service_detected else 'Detecting service...' }}
+            </h5>
+            <span
+              id="accuracy-val"
+              class="badge bg-info text-white px-3 py-2 rounded-pill mt-2 small"
+            >
+              Accuracy:
+                {% if active_session and active_session.confidence is not none %}
+                  {{ (active_session.confidence * 100) | round(1) }}%
+                {% else %}
+                  --
+                {% endif %}
+
             </span>
           </div>
         </div>
@@ -167,26 +220,57 @@
     <div class="modal-content border-0 shadow" style="border-radius: 16px">
       <div class="modal-header border-0">
         <h5 class="modal-title fw-bold text-danger">Stop Session?</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+        ></button>
       </div>
       <div class="modal-body">
-        <p class="text-muted small">The system usually stops automatically. If you need to stop it manually, please tell us why:</p>
+        <p class="text-muted small">
+          The system usually stops automatically. If you need to stop it
+          manually, please tell us why:
+        </p>
         <div class="mb-3">
-          <label class="form-label fw-semibold small">Reason for Stopping</label>
-          <select class="form-select form-select-sm mb-2" id="reason-select" onchange="toggleOtherNote()">
-            <option value="System Error / AI not responding">System Error / AI not responding</option>
-            <option value="Customer cancelled or left early">Customer cancelled or left early</option>
-            <option value="Staff forgot to finish session">Staff forgot / Human error</option>
+          <label class="form-label fw-semibold small"
+            >Reason for Stopping</label
+          >
+          <select
+            class="form-select form-select-sm mb-2"
+            id="reason-select"
+            onchange="toggleOtherNote()"
+          >
+            <option value="System Error / AI not responding">
+              System Error / AI not responding
+            </option>
+            <option value="Customer cancelled or left early">
+              Customer cancelled or left early
+            </option>
+            <option value="Staff forgot to finish session">
+              Staff forgot / Human error
+            </option>
             <option value="other">Other (Please specify below)</option>
           </select>
           <div id="other-note-container" class="d-none">
-            <textarea class="form-control" id="force-end-note" rows="2" placeholder="Describe the reason here..."></textarea>
+            <textarea
+              class="form-control"
+              id="force-end-note"
+              rows="2"
+              placeholder="Describe the reason here..."
+            ></textarea>
           </div>
         </div>
       </div>
       <div class="modal-footer border-0">
-        <button class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
-        <button class="btn btn-danger fw-bold rounded-pill px-4" onclick="submitManualEnd()">Stop Now</button>
+        <button class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">
+          Cancel
+        </button>
+        <button
+          class="btn btn-danger fw-bold rounded-pill px-4"
+          onclick="submitManualEnd()"
+        >
+          Stop Now
+        </button>
       </div>
     </div>
   </div>
@@ -194,157 +278,172 @@
 
 <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 <script>
-  const socket = io();
-  let currentSessionId = "{{ active_session.session_id if active_session else '' }}";
-  let sopState = {};   // step_id => true/false
-  let fullSOP = [];    // full SOP descriptions, keeps original text
+    const socket = io();
+    let currentSessionId = "{{ active_session.session_id if active_session else '' }}";
+    let sopState = {};   // step_id => true/false
+    let fullSOP = [];    // full SOP descriptions, keeps original text
 
-  // Attach delegated listener once on DOMContentLoaded
-  document.addEventListener("DOMContentLoaded", () => {
-    updateButtonState();
+    // Attach delegated listener once on DOMContentLoaded
+    document.addEventListener("DOMContentLoaded", () => {
+      updateButtonState();
 
-    const list = document.getElementById("sop-list-container");
-    list.addEventListener("change", (e) => {
-      if (e.target.classList.contains("sop-checkbox")) {
-        const stepId = e.target.dataset.stepId;
-        const isChecked = e.target.checked;
-        toggleStep(stepId, isChecked);
-      }
+      const list = document.getElementById("sop-list-container");
+      list.addEventListener("change", (e) => {
+        if (e.target.classList.contains("sop-checkbox")) {
+          const stepId = e.target.dataset.stepId;
+          const isChecked = e.target.checked;
+          toggleStep(stepId, isChecked);
+        }
+      });
     });
-  });
 
-  socket.on("sop_update", (data) => {
-    console.log("Payload received:", data);
-    updateUI(data);
-  });
+    socket.on("sop_update", (data) => {
+      console.log("Payload received:", data);
+      updateUI(data);
+    });
 
-  socket.on("session_ended", (data) => {
-    console.log("Session ended:", data);
-    const sessionIndicator = document.getElementById("session-indicator");
-    sessionIndicator.innerHTML = `<span class="badge bg-warning p-2 shadow-sm text-dark">
-      <i class="bi bi-exclamation-triangle-fill me-1"></i> ENDED: ${data.session_id}
-    </span>`;
-    document.getElementById("action-footer").classList.add("d-none");
-  });
+    socket.on("session_ended", (data) => {
+      console.log("Session ended:", data);
+      const sessionIndicator = document.getElementById("session-indicator");
+      sessionIndicator.innerHTML = `<span class="badge bg-warning p-2 shadow-sm text-dark">
+        <i class="bi bi-exclamation-triangle-fill me-1"></i> ENDED: ${data.session_id}
+      </span>`;
+      document.getElementById("action-footer").classList.add("d-none");
+    });
 
-  function updateUI(payload) {
-    if (!payload.sop || payload.sop.length === 0) return;
+    socket.on("session_ended", (data) => {
+      alert(`Session ended successfully.\nSession ID: ${data.session_id}`);
+      location.reload();
+    });
 
-    currentSessionId = payload.session_id || payload.service_record_id || payload.id;
+    socket.on("session_end_rejected", (data) => {
+      alert(data.message || "Session cannot be ended. Checklist incomplete.");
+    });
 
-    // Save full SOP only on first load
-    if (fullSOP.length === 0) {
-      fullSOP = payload.sop.map(item => ({ ...item }));
+
+    function updateUI(payload) {
+      if (!payload.sop || payload.sop.length === 0) return;
+
+      currentSessionId = payload.session_id || payload.service_record_id || payload.id;
+
+      // Save full SOP only on first load
+      if (fullSOP.length === 0) {
+        fullSOP = payload.sop.map(item => ({ ...item }));
+      }
+
+      // Build sopState for any missing entries
+      payload.sop.forEach(item => {
+        if (!(item.step_id in sopState)) {
+          sopState[item.step_id] = item.checked;
+        }
+      });
+
+      const sessionIndicator = document.getElementById("session-indicator");
+      sessionIndicator.innerHTML = currentSessionId
+        ? `<span class="badge bg-success p-2 shadow-sm animate-pulse"><i class="bi bi-record-circle-fill me-1"></i> ACTIVE: ${currentSessionId}</span>`
+        : `<span class="badge bg-warning p-2 shadow-sm text-dark"><i class="bi bi-exclamation-triangle-fill me-1"></i> ID NOT FOUND</span>`;
+
+      document.getElementById("ai-waiting").classList.add("d-none");
+      document.getElementById("ai-detected").classList.remove("d-none");
+
+      document.getElementById("service-name-text").innerText = payload.service ? payload.service.toUpperCase() : "DETECTING...";
+      const accuracyText =
+        payload.confidence !== null && payload.confidence !== undefined
+          ? `Accuracy: ${(payload.confidence * 100).toFixed(1)}%`
+          : "Accuracy: --";
+
+      document.getElementById("accuracy-val").innerText = accuracyText;
+
+      renderSOPList();
     }
 
-    // Build sopState for any missing entries
-    payload.sop.forEach(item => {
-      if (!(item.step_id in sopState)) {
-        sopState[item.step_id] = item.checked;
-      }
-    });
+    function renderSOPList() {
+      const list = document.getElementById("sop-list-container");
+      list.innerHTML = "";
+      document.getElementById("sop-placeholder").classList.add("d-none");
+      list.classList.remove("d-none");
+      document.getElementById("step-count").innerText = fullSOP.length + " Steps";
 
-    const sessionIndicator = document.getElementById("session-indicator");
-    sessionIndicator.innerHTML = currentSessionId
-      ? `<span class="badge bg-success p-2 shadow-sm animate-pulse"><i class="bi bi-record-circle-fill me-1"></i> ACTIVE: ${currentSessionId}</span>`
-      : `<span class="badge bg-warning p-2 shadow-sm text-dark"><i class="bi bi-exclamation-triangle-fill me-1"></i> ID NOT FOUND</span>`;
+      fullSOP.forEach((item, index) => {
+        const isChecked = sopState[item.step_id] ?? false;
+        list.innerHTML += `
+          <li class="list-group-item ${isChecked ? "completed" : ""}">
+            <div class="step-circle">${index + 1}</div>
+            <div class="sop-description">
+              <p class="mb-0 small ${isChecked ? "text-success" : "text-dark"}">${item.description}</p>
+            </div>
+            <input class="form-check-input sop-checkbox" type="checkbox" style="width:20px;height:20px;"
+                  data-step-id="${item.step_id}" ${isChecked ? "checked" : ""}>
+          </li>`;
+      });
 
-    document.getElementById("ai-waiting").classList.add("d-none");
-    document.getElementById("ai-detected").classList.remove("d-none");
-
-    document.getElementById("service-name-text").innerText = payload.service ? payload.service.toUpperCase() : "DETECTING...";
-    document.getElementById("accuracy-val").innerText = `Accuracy: ${(payload.confidence * 100).toFixed(1)}%`;
-
-    renderSOPList();
-  }
-
-  function renderSOPList() {
-    const list = document.getElementById("sop-list-container");
-    list.innerHTML = "";
-    document.getElementById("sop-placeholder").classList.add("d-none");
-    list.classList.remove("d-none");
-    document.getElementById("step-count").innerText = fullSOP.length + " Steps";
-
-    fullSOP.forEach((item, index) => {
-      const isChecked = sopState[item.step_id] ?? false;
-      list.innerHTML += `
-        <li class="list-group-item ${isChecked ? "completed" : ""}">
-          <div class="step-circle">${index + 1}</div>
-          <div class="sop-description">
-            <p class="mb-0 small ${isChecked ? "text-success" : "text-dark"}">${item.description}</p>
-          </div>
-          <input class="form-check-input sop-checkbox" type="checkbox" style="width:20px;height:20px;"
-                data-step-id="${item.step_id}" ${isChecked ? "checked" : ""}>
-        </li>`;
-    });
-
-    document.getElementById("action-footer").classList.remove("d-none");
-    updateButtonState();
-  }
-
-  function toggleStep(stepId, isChecked) {
-    sopState[stepId] = isChecked;
-    renderSOPList();  // Re-render using fullSOP to preserve descriptions
-    updateButtonState();
-
-    if (!currentSessionId) return;
-    socket.emit("checklist_update", {
-      session_id: currentSessionId,
-      step_id: stepId,
-      checked: isChecked,
-    });
-  }
-
-  function updateButtonState() {
-    const total = document.querySelectorAll(".sop-checkbox").length;
-    const checked = document.querySelectorAll(".sop-checkbox:checked").length;
-    const btn = document.getElementById("main-end-btn");
-    if (total > 0 && total === checked) {
-      btn.disabled = false;
-      btn.classList.replace("btn-outline-danger", "btn-danger");
-      btn.classList.remove("opacity-50");
-    } else {
-      btn.disabled = true;
-      btn.classList.replace("btn-danger", "btn-outline-danger");
-      btn.classList.add("opacity-50");
+      document.getElementById("action-footer").classList.remove("d-none");
+      updateButtonState();
     }
-  }
 
-  function handleEndSession() {
-    new bootstrap.Modal(document.getElementById("forceEndModal")).show();
-  }
+    function toggleStep(stepId, isChecked) {
+      sopState[stepId] = isChecked;
+      renderSOPList();  // Re-render using fullSOP to preserve descriptions
+      updateButtonState();
 
-  function toggleOtherNote() {
-    const select = document.getElementById("reason-select");
-    const container = document.getElementById("other-note-container");
-    container.classList.toggle("d-none", select.value !== "other");
-  }
+      if (!currentSessionId) return;
+      socket.emit("checklist_update", {
+        session_id: currentSessionId,
+        step_id: stepId,
+        checked: isChecked,
+      });
+    }
 
-  async function submitManualEnd() {
-  const selectElement = document.getElementById("reason-select");
-  const noteElement = document.getElementById("force-end-note");
-  let finalReasonValue = selectElement.value === "other" ? noteElement.value.trim() : selectElement.value;
+    function updateButtonState() {
+      const total = document.querySelectorAll(".sop-checkbox").length;
+      const checked = document.querySelectorAll(".sop-checkbox:checked").length;
+      const btn = document.getElementById("main-end-btn");
+      if (1 == 1) {
+        btn.disabled = false;
+        btn.classList.replace("btn-outline-danger", "btn-danger");
+        btn.classList.remove("opacity-50");
+      } else {
+        btn.disabled = true;
+        btn.classList.replace("btn-danger", "btn-outline-danger");
+        btn.classList.add("opacity-50");
+      }
+    }
 
-  if (!finalReasonValue) {
-    alert("Please describe your reason in the text box.");
-    return;
-  }
+    function handleEndSession() {
+      new bootstrap.Modal(document.getElementById("forceEndModal")).show();
+    }
 
-  // Send via WebSocket
-  socket.emit("session_end", {
-    rp_id: "{{ workstation.rpi_id if workstation else '' }}",
-    reason: finalReasonValue
-  });
+    function toggleOtherNote() {
+      const select = document.getElementById("reason-select");
+      const container = document.getElementById("other-note-container");
+      container.classList.toggle("d-none", select.value !== "other");
+    }
 
-  alert(`Manual Stop Confirmed.\nReason: ${finalReasonValue}`);
-  location.reload();
-}
+    async function submitManualEnd() {
+      const selectElement = document.getElementById("reason-select");
+      const noteElement = document.getElementById("force-end-note");
 
-  {% if initial_payload %}
-  document.addEventListener("DOMContentLoaded", () => {
-    updateUI({{ initial_payload|tojson }});
-  });
-  {% endif %}
+      let finalReasonValue =
+        selectElement.value === "other"
+          ? noteElement.value.trim()
+          : selectElement.value;
+
+      if (!finalReasonValue) {
+        alert("Please describe your reason in the text box.");
+        return;
+      }
+
+      socket.emit("session_end", {
+        rp_id: "{{ workstation.rpi_id if workstation else '' }}",
+        reason: finalReasonValue
+      });
+    }
+
+    {% if initial_payload %}
+    document.addEventListener("DOMContentLoaded", () => {
+      updateUI({{ initial_payload|tojson }});
+    });
+    {% endif %}
 </script>
 
 {% endblock %}
