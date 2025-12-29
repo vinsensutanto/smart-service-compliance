@@ -7,6 +7,7 @@ from app.extensions import db
 from app.models.service_record import ServiceRecord
 from app.models.workstation import Workstation
 from app.models.service_checklist import ServiceChecklist
+from app.services.session_store import finalize_session
 
 
 # ======================================================
@@ -23,10 +24,10 @@ def start_session(
     rp_id = rp_id.upper()
     start_time = start_time or datetime.now(timezone.utc)
 
-    # Resolve workstation
+    # Resolve workstation explicitly
     workstation = (
         db.session.query(Workstation)
-        .filter_by(rpi_id=rp_id)
+        .filter(Workstation.rpi_id == rp_id)
         .first()
     )
 
@@ -34,7 +35,7 @@ def start_session(
         print(f"[SESSION] Unknown rp_id={rp_id}")
         return None
 
-    # Prevent double active session per RP
+    # Prevent double active session per workstation
     active = (
         db.session.query(ServiceRecord)
         .filter(
@@ -75,23 +76,16 @@ def start_session(
 
 
 # ======================================================
-# END SESSION (GUARDED)
+# END SESSION (SAFE + GUARDED)
 # ======================================================
 
 def end_session_by_rp(
     rp_id: str,
-    end_time=None,
+    manual_termination: bool = False,
     reason: Optional[str] = None
 ) -> Optional[str]:
-    """
-    Ends active session for RP.
-
-    - Normal end: requires all checklist items completed
-    - Forced end: allowed even if checklist incomplete
-    """
 
     rp_id = rp_id.upper()
-    end_time = end_time or datetime.now(timezone.utc)
 
     record = (
         db.session.query(ServiceRecord)
@@ -112,34 +106,31 @@ def end_session_by_rp(
         print(f"[SESSION] No active session for rp={rp_id}")
         return None
 
-    checklist_complete = is_checklist_complete(record.service_record_id)
-
-    # HARD GUARD
-    if not checklist_complete:
-        print(
-            f"[SESSION BLOCKED] SR={record.service_record_id} "
-            f"Checklist incomplete"
+    # HARD GUARD (normal flow)
+    if not manual_termination:
+        unchecked = (
+            db.session.query(ServiceChecklist)
+            .filter_by(
+                service_record_id=record.service_record_id,
+                is_checked=False
+            )
+            .count()
         )
-        return None
 
-    # Set end metadata
-    record.end_time = end_time
+        if unchecked > 0:
+            print(
+                f"[SESSION] END BLOCKED SR={record.service_record_id} "
+                f"unchecked={unchecked}"
+            )
+            return None
 
-    if checklist_complete:
-        record.is_normal_flow = 1
-    else:
-        record.is_normal_flow = 0
-        record.reason = reason or "Manual termination (checklist incomplete)"
-
-    db.session.commit()
-
-    print(
-        f"[SESSION ENDED] SR={record.service_record_id} "
-        f"normal_flow={record.is_normal_flow}"
+    finalize_session(
+        service_record_id=record.service_record_id,
+        manual_termination=manual_termination,
+        reason=reason
     )
 
     return record.service_record_id
-
 
 # ======================================================
 # QUERY HELPERS
@@ -175,7 +166,7 @@ def is_checklist_complete(service_record_id: str) -> bool:
 
     total = (
         db.session.query(ServiceChecklist)
-        .filter_by(service_record_id=service_record_id)
+        .filter(ServiceChecklist.service_record_id == service_record_id)
         .count()
     )
 
@@ -184,9 +175,9 @@ def is_checklist_complete(service_record_id: str) -> bool:
 
     checked = (
         db.session.query(ServiceChecklist)
-        .filter_by(
-            service_record_id=service_record_id,
-            is_checked=True
+        .filter(
+            ServiceChecklist.service_record_id == service_record_id,
+            ServiceChecklist.is_checked.is_(True)
         )
         .count()
     )

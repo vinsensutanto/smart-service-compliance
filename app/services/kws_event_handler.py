@@ -6,6 +6,11 @@ from app.services.session_manager import (
     get_active_session_by_rp
 )
 from app.extensions import socketio
+from app.services.stream_controller import publish_end_stream
+from app.services.payload_builder import build_session_payload
+from app.routes.checklist_routes import initialize_checklist
+from app.models.service_record import ServiceRecord
+from app.extensions import db
 
 # =====================================
 # EVENT NORMALIZATION
@@ -46,15 +51,19 @@ def handle_kws_event(rp_id: str, payload: dict):
 
         if sr_id:
             print(f"[KWS] START session SR={sr_id} rp={rp_id}")
+            
+            sr = db.session.query(ServiceRecord).filter_by(service_record_id=sr_id).first()
+            if not sr:
+                print(f"[KWS] ERROR: ServiceRecord not found after start SR={sr_id}")
+                return
 
-            # (OPTIONAL) notify UI session started
-            socketio.emit(
-                "session_started",
-                {
-                    "session_id": sr_id,
-                    "rp_id": rp_id
-                }
-            )
+            initialize_checklist(sr_id, sr.service_id)
+            
+            payload = build_session_payload(sr_id)
+            if payload:
+                socketio.emit("session_started", payload)
+                socketio.emit("sop_update", payload)
+
         else:
             print(f"[KWS] Failed to start session rp={rp_id}")
 
@@ -66,10 +75,12 @@ def handle_kws_event(rp_id: str, payload: dict):
     if raw_event in END_EVENTS:
         sr_id = end_session_by_rp(
             rp_id=rp_id,
-            end_time=timestamp
+            manual_termination=False
         )
 
         if sr_id:
+            publish_end_stream(sr_id)
+            
             print(f"[KWS] END session SR={sr_id} rp={rp_id}")
 
             socketio.emit(

@@ -12,9 +12,9 @@ from app.models.sop_step import SOPStep
 from app.models.service_checklist import ServiceChecklist
 from app.extensions import socketio
 from app.services import session_manager
+from app.services.stream_controller import publish_end_stream
 
 cs_bp = Blueprint("cs", __name__, template_folder="templates")
-
 
 # =========================================
 # CS DASHBOARD
@@ -131,6 +131,8 @@ def handle_manual_end(data):
         )
         return
 
+    publish_end_stream(sr_id)
+    
     socketio.emit(
         "session_ended",
         {

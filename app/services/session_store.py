@@ -26,34 +26,55 @@ def generate_checklist_id():
 # =========================================
 # Session finalization
 # =========================================
-def finalize_session(service_record_id: str):
-    """
-    Close session:
-    - set end_time
-    - calculate duration
-    - aggregate transcript
-    """
-
+def finalize_session(
+    service_record_id: str,
+    manual_termination: bool = False,
+    reason: str | None = None
+):
     record = (
         db.session.query(ServiceRecord)
         .filter_by(service_record_id=service_record_id)
         .first()
     )
     if not record:
-        raise RuntimeError("SperviceRecord not found")
+        raise RuntimeError("ServiceRecord not found")
 
     if record.end_time:
-        return  # already finalized
+        return
 
-    now = datetime.now(timezone.utc)
-    record.end_time = now
-
-    if record.start_time:
-        record.duration = int(
-            (now - record.start_time).total_seconds()
+    if manual_termination:
+        record.is_normal_flow = False
+        record.reason = reason or "Manual termination by supervisor"
+    else:
+        unchecked = (
+            db.session.query(ServiceChecklist)
+            .filter_by(
+                service_record_id=service_record_id,
+                is_checked=False
+            )
+            .count()
         )
 
-    # 🔹 aggregate transcript from chunks
+        if unchecked == 0:
+            record.is_normal_flow = True
+            record.reason = None
+        else:
+            record.is_normal_flow = False
+            record.reason = "SOP not completed"
+
+    record.end_time = datetime.now(timezone.utc)
+
+    if record.start_time:
+        start = record.start_time
+        end = record.end_time
+
+        if start.tzinfo is None:
+            start = start.replace(tzinfo=timezone.utc)
+        if end.tzinfo is None:
+            end = end.replace(tzinfo=timezone.utc)
+
+        record.duration = int((end - start).total_seconds())
+
     chunks = (
         db.session.query(ServiceChunk.text_chunk)
         .filter_by(service_record_id=service_record_id)
@@ -67,9 +88,9 @@ def finalize_session(service_record_id: str):
 
     print(
         f"[SESSION FINALIZED] {service_record_id} "
-        f"duration={record.duration}s chunks={len(chunks)}"
+        f"duration={record.duration}s "
+        f"normal={record.is_normal_flow}"
     )
-
 
 # =========================================
 # Persist checklist (from UI)
@@ -78,17 +99,6 @@ def save_checklist(
     service_record_id: str,
     checklist_items: list[dict]
 ):
-    """
-    checklist_items example:
-    [
-        {
-            "step_id": "ST0001",
-            "checked": true,
-            "checked_at": "2025-12-25T14:33:00Z"
-        }
-    ]
-    """
-
     record = (
         db.session.query(ServiceRecord)
         .filter_by(service_record_id=service_record_id)
@@ -97,17 +107,11 @@ def save_checklist(
     if not record:
         raise RuntimeError("ServiceRecord not found")
 
-    # clear old checklist (idempotent)
     db.session.query(ServiceChecklist)\
         .filter_by(service_record_id=service_record_id)\
         .delete()
 
-    is_normal = True
-
     for step in checklist_items:
-        if not step.get("checked", False):
-            is_normal = False
-
         db.session.add(ServiceChecklist(
             checklist_id=generate_checklist_id(),
             service_record_id=service_record_id,
@@ -116,10 +120,9 @@ def save_checklist(
             checked_at=step.get("checked_at")
         ))
 
-    record.is_normal_flow = is_normal
     db.session.commit()
 
     print(
         f"[CHECKLIST SAVED] {service_record_id} "
-        f"steps={len(checklist_items)} normal={is_normal}"
+        f"steps={len(checklist_items)}"
     )

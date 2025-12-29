@@ -302,13 +302,9 @@
       updateUI(data);
     });
 
-    socket.on("session_ended", (data) => {
-      console.log("Session ended:", data);
-      const sessionIndicator = document.getElementById("session-indicator");
-      sessionIndicator.innerHTML = `<span class="badge bg-warning p-2 shadow-sm text-dark">
-        <i class="bi bi-exclamation-triangle-fill me-1"></i> ENDED: ${data.session_id}
-      </span>`;
-      document.getElementById("action-footer").classList.add("d-none");
+    socket.on("session_started", (payload) => {
+      alert(`Session started\nSession ID: ${payload.session_id}`);
+      updateUI(payload);
     });
 
     socket.on("session_ended", (data) => {
@@ -322,37 +318,47 @@
 
 
     function updateUI(payload) {
-      if (!payload.sop || payload.sop.length === 0) return;
+      if (!payload) return;
 
-      currentSessionId = payload.session_id || payload.service_record_id || payload.id;
+      currentSessionId =
+        payload.session_id || payload.service_record_id || payload.id;
 
-      // Save full SOP only on first load
+      // ACTIVE badge
+      const sessionIndicator = document.getElementById("session-indicator");
+      sessionIndicator.innerHTML = `
+        <span class="badge bg-success p-2 shadow-sm animate-pulse">
+          <i class="bi bi-record-circle-fill me-1"></i>
+          ACTIVE: ${currentSessionId}
+        </span>
+      `;
+
+      document.getElementById("ai-waiting").classList.add("d-none");
+      document.getElementById("ai-detected").classList.remove("d-none");
+
+      // 🔥 FIX #1 — SERVICE NAME
+      if (payload.service) {
+        document.getElementById("service-name-text").innerText =
+          payload.service.toUpperCase();
+      }
+
+      // Accuracy
+      if (payload.confidence !== undefined) {
+        document.getElementById("accuracy-val").innerText =
+          `Accuracy: ${(payload.confidence * 100).toFixed(1)}%`;
+      }
+
+      // SOP may come later
+      if (!payload.sop) return;
+
       if (fullSOP.length === 0) {
         fullSOP = payload.sop.map(item => ({ ...item }));
       }
 
-      // Build sopState for any missing entries
       payload.sop.forEach(item => {
         if (!(item.step_id in sopState)) {
           sopState[item.step_id] = item.checked;
         }
       });
-
-      const sessionIndicator = document.getElementById("session-indicator");
-      sessionIndicator.innerHTML = currentSessionId
-        ? `<span class="badge bg-success p-2 shadow-sm animate-pulse"><i class="bi bi-record-circle-fill me-1"></i> ACTIVE: ${currentSessionId}</span>`
-        : `<span class="badge bg-warning p-2 shadow-sm text-dark"><i class="bi bi-exclamation-triangle-fill me-1"></i> ID NOT FOUND</span>`;
-
-      document.getElementById("ai-waiting").classList.add("d-none");
-      document.getElementById("ai-detected").classList.remove("d-none");
-
-      document.getElementById("service-name-text").innerText = payload.service ? payload.service.toUpperCase() : "DETECTING...";
-      const accuracyText =
-        payload.confidence !== null && payload.confidence !== undefined
-          ? `Accuracy: ${(payload.confidence * 100).toFixed(1)}%`
-          : "Accuracy: --";
-
-      document.getElementById("accuracy-val").innerText = accuracyText;
 
       renderSOPList();
     }
