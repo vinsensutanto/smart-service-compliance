@@ -110,7 +110,60 @@ def my_history():
         .all()
     )
 
-    return render_template("cs/my-history.html", history=history)
+    total_sessions = len(history)
+    final_performance_score = 0
+    avg_duration = 0
+    fastest_service = None
+
+    if total_sessions > 0:
+        total_weighted_score = 0
+        valid_durations = []
+
+        for record in history:
+            # 🔹 HITUNG SCORE PER SESSION
+            record.session_score = calculate_session_score(
+                record.is_normal_flow,
+                record.reason
+            )
+
+            total_weighted_score += record.session_score
+
+            if record.duration and record.duration > 0:
+                valid_durations.append(record.duration)
+
+        final_performance_score = round(
+            total_weighted_score / total_sessions, 1
+        )
+
+        if valid_durations:
+            avg_duration = int(sum(valid_durations) / len(valid_durations))
+
+            fastest_service = min(
+                [r for r in history if r.duration and r.duration > 0],
+                key=lambda x: x.duration,
+                default=None
+            )
+
+    return render_template(
+        "cs/my-history.html",
+        history=history,
+        total_sessions=total_sessions,
+        final_performance_score=final_performance_score,
+        avg_duration=avg_duration,
+        fastest_service=fastest_service
+    )
+
+def calculate_session_score(is_normal, reason):
+    if is_normal == 1:
+        return 100
+
+    weights = {
+        "System Error / AI not responding": 90,
+        "Customer cancelled or left early": 80,
+        "Staff forgot to finish session": 40,
+    }
+    return weights.get(reason, 60)
+
 
 @socketio.on("session_end")
 def handle_manual_end(data):
