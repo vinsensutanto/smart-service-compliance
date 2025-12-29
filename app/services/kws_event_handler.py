@@ -5,6 +5,7 @@ from app.services.session_manager import (
     end_session_by_rp,
     get_active_session_by_rp
 )
+from app.extensions import socketio
 
 # =====================================
 # EVENT NORMALIZATION
@@ -45,6 +46,15 @@ def handle_kws_event(rp_id: str, payload: dict):
 
         if sr_id:
             print(f"[KWS] START session SR={sr_id} rp={rp_id}")
+
+            # (OPTIONAL) notify UI session started
+            socketio.emit(
+                "session_started",
+                {
+                    "session_id": sr_id,
+                    "rp_id": rp_id
+                }
+            )
         else:
             print(f"[KWS] Failed to start session rp={rp_id}")
 
@@ -61,9 +71,20 @@ def handle_kws_event(rp_id: str, payload: dict):
 
         if sr_id:
             print(f"[KWS] END session SR={sr_id} rp={rp_id}")
+
+            socketio.emit(
+                "session_ended",
+                {
+                    "session_id": sr_id,
+                    "reason": "Auto-ended (KWS selesai)"
+                }
+            )
         else:
             print(f"[KWS] No active session to end rp={rp_id}")
 
         return
 
+    # ---------------------------------
+    # UNKNOWN EVENT
+    # ---------------------------------
     print(f"[KWS] Unknown event '{raw_event}' payload={payload}")

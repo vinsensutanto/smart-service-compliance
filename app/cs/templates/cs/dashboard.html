@@ -145,8 +145,8 @@
             id="main-end-btn"
             class="btn btn-outline-danger btn-lg w-100 fw-bold opacity-50"
             onclick="handleEndSession()"
+            disabled
             >
-            <!--disabled-->
             <i class="bi bi-stop-circle me-2"></i> Stop Session Manually
           </button>
           <div id="btn-hint" class="text-center mt-2 px-3">
@@ -398,7 +398,7 @@
       const total = document.querySelectorAll(".sop-checkbox").length;
       const checked = document.querySelectorAll(".sop-checkbox:checked").length;
       const btn = document.getElementById("main-end-btn");
-      if (1 == 1) {
+      if (total > 0 && total === checked) {
         btn.disabled = false;
         btn.classList.replace("btn-outline-danger", "btn-danger");
         btn.classList.remove("opacity-50");
