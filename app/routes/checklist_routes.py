@@ -7,6 +7,8 @@ from app.models.service_checklist import ServiceChecklist
 from app.models.service_record import ServiceRecord
 from app.services.sop_engine import load_sop_by_service_id
 import logging
+from app.models.sop_step import SOPStep
+from app.models.workstation import Workstation
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -31,7 +33,11 @@ def handle_checklist_update(data):
     session_id = data.get("session_id")
     step_id = data.get("step_id")
     checked = data.get("checked", False)
-    timestamp = data.get("timestamp") or datetime.now().strftime("%Y-%m-%d %H:%M")
+    timestamp = data.get("timestamp")
+    if timestamp:
+        timestamp = datetime.fromisoformat(timestamp)
+    else:
+        timestamp = datetime.now()
 
     logger.info(f"[SocketIO] checklist_update received: session_id={session_id}, step_id={step_id}, checked={checked}")
 
@@ -121,19 +127,35 @@ def emit_checklist(service_record_id):
     if not service_record:
         return
 
-    checklist = db.session.query(ServiceChecklist).filter_by(service_record_id=service_record_id).all()
+    # Fetch related workstation to get RP ID
+    ws = db.session.query(Workstation).filter_by(workstation_id=service_record.workstation_id).first()
+    rp_id = ws.rpi_id if ws else None
+
+    rows = (
+        db.session.query(ServiceChecklist, SOPStep)
+        .join(SOPStep, SOPStep.step_id == ServiceChecklist.step_id)
+        .filter(ServiceChecklist.service_record_id == service_record_id)
+        .order_by(SOPStep.step_number)
+        .all()
+    )
+
     sop_payload = [
         {
-            "step_id": item.step_id,
-            "description": getattr(item, "description", ""),  # optional, for frontend only
-            "checked": item.is_checked,
-            "checked_at": item.checked_at.strftime("%Y-%m-%d %H:%M") if item.checked_at else None
-        } for item in checklist
+            "step_id": sc.step_id,
+            "description": step.step_description,
+            "checked": sc.is_checked,
+            "checked_at": sc.checked_at.strftime("%Y-%m-%d %H:%M") if sc.checked_at else None
+        }
+        for sc, step in rows
     ]
 
-    socketio.emit("sop_update", {
-        "session_id": service_record.service_record_id,
-        "service": getattr(service_record, "service_detected", None),
-        "confidence": getattr(service_record, "confidence", None),
-        "sop": sop_payload
-    })
+    socketio.emit(
+        "sop_update",
+        {
+            "session_id": service_record.service_record_id,
+            "service": getattr(service_record, "service_detected", None),
+            "confidence": getattr(service_record, "confidence", None),
+            "sop": sop_payload,
+            "rp_id": rp_id
+        }
+    )

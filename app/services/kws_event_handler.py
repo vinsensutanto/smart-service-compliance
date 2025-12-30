@@ -6,6 +6,12 @@ from app.services.session_manager import (
     get_active_session_by_rp
 )
 from app.extensions import socketio
+from app.services.stream_controller import publish_end_stream
+from app.services.payload_builder import build_session_payload
+from app.routes.checklist_routes import initialize_checklist
+from app.models.service_record import ServiceRecord
+from app.extensions import db
+from app.services.session_manager import attach_user_to_active_session
 
 # =====================================
 # EVENT NORMALIZATION
@@ -37,24 +43,32 @@ def handle_kws_event(rp_id: str, payload: dict):
             print(f"[KWS] Session already active SR={active} rp={rp_id}")
             return
 
+        # Optionally, look up user assigned to RP (if you maintain such mapping)
+        user_id_for_rp = None  # <- implement your logic if you want to pre-attach
+
         sr_id = start_session(
             session_id=None,
             rp_id=rp_id,
-            user_id=None,
+            user_id=user_id_for_rp,
             start_time=timestamp
         )
 
         if sr_id:
             print(f"[KWS] START session SR={sr_id} rp={rp_id}")
+            
+            sr = db.session.query(ServiceRecord).filter_by(service_record_id=sr_id).first()
+            if not sr:
+                print(f"[KWS] ERROR: ServiceRecord not found after start SR={sr_id}")
+                return
 
-            # (OPTIONAL) notify UI session started
-            socketio.emit(
-                "session_started",
-                {
-                    "session_id": sr_id,
-                    "rp_id": rp_id
-                }
-            )
+            initialize_checklist(sr_id, sr.service_id)
+            
+            payload = build_session_payload(sr_id)
+            if payload:
+                payload["rp_id"] = rp_id
+                socketio.emit("session_started", payload)
+                socketio.emit("sop_update", payload)
+
         else:
             print(f"[KWS] Failed to start session rp={rp_id}")
 
@@ -66,17 +80,20 @@ def handle_kws_event(rp_id: str, payload: dict):
     if raw_event in END_EVENTS:
         sr_id = end_session_by_rp(
             rp_id=rp_id,
-            end_time=timestamp
+            manual_termination=False
         )
 
         if sr_id:
+            publish_end_stream(sr_id)
+            
             print(f"[KWS] END session SR={sr_id} rp={rp_id}")
 
             socketio.emit(
                 "session_ended",
                 {
                     "session_id": sr_id,
-                    "reason": "Auto-ended (KWS selesai)"
+                    "reason": "Auto-ended (KWS selesai)",
+                    "rp_id": rp_id
                 }
             )
         else:

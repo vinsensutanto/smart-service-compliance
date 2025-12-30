@@ -12,9 +12,9 @@ from app.models.sop_step import SOPStep
 from app.models.service_checklist import ServiceChecklist
 from app.extensions import socketio
 from app.services import session_manager
+from app.services.stream_controller import publish_end_stream
 
 cs_bp = Blueprint("cs", __name__, template_folder="templates")
-
 
 # =========================================
 # CS DASHBOARD
@@ -22,14 +22,22 @@ cs_bp = Blueprint("cs", __name__, template_folder="templates")
 @cs_bp.route("/dashboard")
 @login_required
 def dashboard():
-    active_session = (
-        db.session.query(ServiceRecord)
-        .filter(ServiceRecord.end_time.is_(None))
-        .order_by(ServiceRecord.start_time.desc())
-        .first()
-    )
+    
+    pc_id = os.getenv("PC_ID")  # read from env
+    workstation = db.session.query(Workstation).filter_by(pc_id=pc_id).first()
 
-    workstation = None
+    active_session = None
+    if workstation:
+        active_session = (
+            db.session.query(ServiceRecord)
+            .filter(
+                ServiceRecord.workstation_id == workstation.workstation_id,
+                ServiceRecord.end_time.is_(None)
+            )
+            .order_by(ServiceRecord.start_time.desc())
+            .first()
+        )
+        
     initial_payload = None
 
     if active_session:
@@ -169,7 +177,32 @@ def calculate_session_score(is_normal, reason):
 def handle_manual_end(data):
     rp_id = data.get("rp_id")
     reason = data.get("reason")
+    pc_id = os.getenv("PC_ID")
 
+    ws = db.session.query(Workstation).filter_by(pc_id=pc_id, rpi_id=rp_id).first()
+    if not ws:
+        socketio.emit(
+            "session_end_rejected",
+            {"message": "Invalid RP for this PC", "rp_id": rp_id}
+        )
+        return
+
+    # Get active session for this RP
+    sr_id = session_manager.get_active_session_by_rp(rp_id)
+    if not sr_id:
+        socketio.emit(
+            "session_end_rejected",
+            {"message": "No active session", "rp_id": rp_id}
+        )
+        return
+
+    # Assign current_user to session if missing
+    session = db.session.query(ServiceRecord).filter_by(service_record_id=sr_id).first()
+    if session and not session.user_id:
+        session.user_id = current_user.user_id
+        db.session.commit()
+
+    # End session
     sr_id = session_manager.end_session_by_rp(
         rp_id=rp_id,
         reason=reason
@@ -178,16 +211,12 @@ def handle_manual_end(data):
     if not sr_id:
         socketio.emit(
             "session_end_rejected",
-            {
-                "message": "Session cannot be ended"
-            }
+            {"message": "Session cannot be ended", "rp_id": rp_id}
         )
         return
 
+    publish_end_stream(sr_id)
     socketio.emit(
         "session_ended",
-        {
-            "session_id": sr_id,
-            "reason": reason
-        }
+        {"session_id": sr_id, "reason": reason, "rp_id": rp_id}
     )

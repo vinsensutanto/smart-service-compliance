@@ -132,15 +132,18 @@ def process_audio_chunk(rp_id: str, payload: dict):
         print(f"[AUDIO] ServiceRecord not found: {sr_id}")
         return
 
+    service_already_locked = bool(record.service_id)
+
+    # Append transcript
     record.text = f"{record.text} {text}" if record.text else text
     db.session.commit()
 
     full_text = record.text
 
     # ---------------------------------
-    # EARLY SERVICE DETECTION
+    # EARLY SERVICE DETECTION (ONE-SHOT)
     # ---------------------------------
-    if not record.service_id:
+    if not service_already_locked:
         service_key, label, confidence, hits = detect_service(full_text)
 
         if service_key and should_lock_service(confidence):
@@ -149,14 +152,26 @@ def process_audio_chunk(rp_id: str, payload: dict):
                 record.service_id = service_id
                 record.service_detected = label
                 record.confidence = confidence
-                db.session.commit()
 
-                load_sop_by_service_id(service_id)
+                db.session.commit()
 
                 print(
                     f"[SERVICE LOCKED] SR={sr_id} "
                     f"{label} conf={confidence}"
                 )
+
+                # INIT SOP
+                from app.routes.checklist_routes import initialize_checklist
+                initialize_checklist(sr_id, service_id)
+
+                # EMIT TO UI
+                from app.services.payload_builder import build_session_payload
+                from app.extensions import socketio
+
+                payload = build_session_payload(sr_id)
+                payload["rp_id"] = rp_id
+                socketio.emit("service_locked", payload)
+                socketio.emit("sop_update", payload)
 
     # ---------------------------------
     # Save chunk audit
