@@ -1,9 +1,11 @@
 import json
 from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask_login import current_user, login_required
 from sqlalchemy import func
 from datetime import datetime, timezone
 from app.extensions import db
 from app.models import User, ServiceRecord, Workstation, SOPService
+from app.utils.decorators import role_required
 spv_bp = Blueprint(
     "spv",
     __name__,
@@ -12,6 +14,8 @@ spv_bp = Blueprint(
 
 
 @spv_bp.route("/dashboard")
+@login_required
+@role_required(["Supervisor"])
 def dashboard():
     today = datetime.now(timezone.utc).date()
 
@@ -71,6 +75,8 @@ def dashboard():
 
 
 @spv_bp.route("/user-management")
+@login_required
+@role_required(["Supervisor"])
 def user_management():
     # Ambil data untuk statistik dan tabel
     all_users = User.query.all()
@@ -83,6 +89,8 @@ def user_management():
                            active_users=active_users)
 
 @spv_bp.route("/approve-user/<user_id>", methods=["POST"])
+@login_required
+@role_required(["Supervisor"])
 def approve_user(user_id):
     user = User.query.get(user_id)
     if user:
@@ -101,6 +109,8 @@ def reject_user(user_id):
     return redirect(url_for('spv.user_management'))
 
 @spv_bp.route("/performance-analytics")
+@login_required
+@role_required(["Supervisor"])
 def performance_analytics():
     # 1. Query Statistik Utama
     total_sessions = ServiceRecord.query.count()

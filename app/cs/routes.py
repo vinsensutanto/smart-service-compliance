@@ -13,6 +13,7 @@ from app.models.service_checklist import ServiceChecklist
 from app.extensions import socketio
 from app.services import session_manager
 from app.services.stream_controller import publish_end_stream
+from app.utils.decorators import role_required
 
 cs_bp = Blueprint("cs", __name__, template_folder="templates")
 
@@ -21,10 +22,11 @@ cs_bp = Blueprint("cs", __name__, template_folder="templates")
 # =========================================
 @cs_bp.route("/dashboard")
 @login_required
+@role_required(["Customer Service"])
 def dashboard():
     
     pc_id = os.getenv("PC_ID")  # read from env
-    workstation = db.session.query(Workstation).filter_by(pc_id=pc_id).first()
+        
 
     active_session = None
     if workstation:
@@ -90,6 +92,7 @@ def dashboard():
 # =========================================
 @cs_bp.route("/service-guidelines")
 @login_required
+@role_required(["Customer Service"])
 def service_guidelines():
     services = db.session.query(SOPService).all()
     steps = (
@@ -110,6 +113,7 @@ def service_guidelines():
 # =========================================
 @cs_bp.route("/my-history")
 @login_required
+@role_required(["Customer Service"])
 def my_history():
     history = (
         db.session.query(ServiceRecord)
