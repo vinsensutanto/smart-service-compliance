@@ -9,26 +9,6 @@ INSERT INTO roles (role_id, role_name) VALUES
 ("RL0005", "Branch Manager");
 
 -- =========================
--- WORKSTATIONS
--- =========================
-INSERT INTO workstations (
-    workstation_id, pc_id, rpi_id, location, is_active
-) VALUES
-("WS0001", "PC0001", "RP0001", "CS Desk 1", 1),
-("WS0002", "PC0002", "RP0002", "CS Desk 2", 1),
-("WS0003", "PC0003", "RP0003", "CS Desk 3", 1),
-("WS0004", "PC0004", "RP0004", "CS Desk 4", 1),
-("WS0005", "PC0005", "RP0005", "CS Desk 5", 1);
-
--- =========================
--- SOP SERVICES
--- =========================
-INSERT INTO sop_services (service_id, service_name) VALUES
-("SV0001", "Penggantian Kartu ATM"),
-("SV0002", "Pembukaan Rekening Tahapan"),
-("SV0003", "Pendaftaran m-BCA");
-
--- =========================
 -- USERS (FIXED)
 -- =========================
 INSERT INTO users (
@@ -60,6 +40,26 @@ INSERT INTO users (
 ("US0005", "RL0001", "Andi Wijaya", "andiwijaya@example.com",
  "$2b$12$nh5EA8F9Gamwrw6phaY7KuVRp.mgLh/MQkMlBp0ohvtv3bS3H9QNC",
  1, "2021-12-20 15:00:00", "2021-12-20 15:00:00");
+
+-- =========================
+-- WORKSTATIONS
+-- =========================
+INSERT INTO workstations (
+    workstation_id, pc_id, rpi_id, location, is_active, current_user_id
+) VALUES
+("WS0001", "PC0001", "RP0001", "CS Desk 1", 1, NULL),
+("WS0002", "PC0002", "RP0002", "CS Desk 2", 1, NULL),
+("WS0003", "PC0003", "RP0003", "CS Desk 3", 1, NULL),
+("WS0004", "PC0004", "RP0004", "CS Desk 4", 1, NULL),
+("WS0005", "PC0005", "RP0005", "CS Desk 5", 1, NULL);
+
+-- =========================
+-- SOP SERVICES
+-- =========================
+INSERT INTO sop_services (service_id, service_name) VALUES
+("SV0001", "Penggantian Kartu ATM"),
+("SV0002", "Pembukaan Rekening Tahapan"),
+("SV0003", "Pendaftaran m-BCA");
 
 -- =========================
 -- SOP STEPS

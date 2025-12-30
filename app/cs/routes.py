@@ -15,6 +15,8 @@ from app.services import session_manager
 from app.services.stream_controller import publish_end_stream
 from app.utils.decorators import role_required
 from app.utils.scoring import calculate_session_score
+from app.services.session_manager import attach_user_to_active_session
+from flask_login import current_user
 
 cs_bp = Blueprint("cs", __name__, template_folder="templates")
 
@@ -79,7 +81,12 @@ def dashboard():
                 "confidence": active_session.confidence or 0,
                 "sop": checklist,
             }
-
+            
+    if active_session and not active_session.user_id:
+        attach_user_to_active_session(
+            rp_id=workstation.rpi_id,
+            user_id=current_user.user_id
+        )
     # 6. Kirim ke template
     return render_template(
         "cs/dashboard.html",

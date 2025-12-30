@@ -17,24 +17,23 @@ from flask_login import current_user
 def start_session(
     session_id: str,
     rp_id: str,
-    user_id: Optional[str] = None,
     start_time=None
 ) -> Optional[str]:
-    """
-    Start a new session for a workstation (RP). 
-    Only attach user_id if provided explicitly.
-    Prevents multiple active sessions per workstation.
-    """
+    
     rp_id = rp_id.upper()
     start_time = start_time or datetime.now(timezone.utc)
 
-    # Resolve workstation
-    workstation = db.session.query(Workstation).filter_by(rpi_id=rp_id).first()
+    workstation = (
+        db.session.query(Workstation)
+        .filter_by(rpi_id=rp_id)
+        .first()
+    )
+    
     if not workstation:
         print(f"[SESSION] Unknown rp_id={rp_id}")
         return None
 
-    # Check for existing active session
+    user_id = workstation.current_user_id
     active = (
         db.session.query(ServiceRecord)
         .filter(

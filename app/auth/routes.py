@@ -42,8 +42,13 @@ def login():
             pc_id = os.getenv("PC_ID")
             workstation = db.session.query(Workstation).filter_by(pc_id=pc_id).first()
             if workstation:
-                rp_id = workstation.rpi_id
-                attach_user_to_active_session(rp_id=rp_id, user_id=user.user_id)
+                workstation.current_user_id = user.user_id
+                db.session.commit()
+
+                attach_user_to_active_session(
+                    rp_id=workstation.rpi_id,
+                    user_id=user.user_id
+                )
 
             # Redirect by role
             if role_name == "Customer Service":
@@ -62,8 +67,16 @@ def login():
 
     return render_template("login.html", form=form)
 
-@auth_web_bp.route("/logout", methods=["GET", "POST"]) 
+@auth_web_bp.route("/logout", methods=["GET", "POST"])
 def logout():
+    pc_id = os.getenv("PC_ID")
+
+    if pc_id:
+        workstation = db.session.query(Workstation).filter_by(pc_id=pc_id).first()
+        if workstation:
+            workstation.current_user_id = None
+            db.session.commit()
+
     logout_user()
     flash("You have been logged out.", "success")
     return redirect(url_for("auth_web.login"))

@@ -10,6 +10,12 @@ class Workstation(db.Model):
     location = db.Column(db.String(100))
     is_active = db.Column(db.Boolean, default=False)
 
+    current_user_id = db.Column(
+        db.String(6),
+        db.ForeignKey("users.user_id"),
+        nullable=True
+    )
+
     __table_args__ = (
         CheckConstraint("workstation_id REGEXP '^WS[0-9]{4}$'", name="chk_workstation_id"),
         CheckConstraint("pc_id REGEXP '^PC[0-9]{4}$'", name="chk_pc_id"),

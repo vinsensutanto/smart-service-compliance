@@ -43,13 +43,9 @@ def handle_kws_event(rp_id: str, payload: dict):
             print(f"[KWS] Session already active SR={active} rp={rp_id}")
             return
 
-        # Optionally, look up user assigned to RP (if you maintain such mapping)
-        user_id_for_rp = None  # <- implement your logic if you want to pre-attach
-
         sr_id = start_session(
             session_id=None,
             rp_id=rp_id,
-            user_id=user_id_for_rp,
             start_time=timestamp
         )
 
