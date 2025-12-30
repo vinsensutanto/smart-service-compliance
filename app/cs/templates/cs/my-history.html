@@ -1,8 +1,15 @@
+<<<<<<< HEAD
 {% extends "layouts/app.html" %} {% block content %}
 
 <style>
   html,
   body {
+=======
+{% extends "layouts/app.html" %} 
+{% block content %}
+<style>
+  html, body {
+>>>>>>> 178d138f8f6948b9f4d13bc0de162e641326e9b5
     height: 100%;
     overflow: hidden;
     background-color: #f8f9fa;
@@ -25,6 +32,11 @@
     flex: 1;
     overflow-y: auto;
   }
+<<<<<<< HEAD
+=======
+
+  /* Table Styling */
+>>>>>>> 178d138f8f6948b9f4d13bc0de162e641326e9b5
   .table-history {
     width: 100%;
     border-collapse: separate;
@@ -47,12 +59,18 @@
     font-size: 0.8rem;
     cursor: pointer;
   }
+<<<<<<< HEAD
+=======
+
+  /* Smooth Transition Logic */
+>>>>>>> 178d138f8f6948b9f4d13bc0de162e641326e9b5
   .detail-row {
     background-color: #f8fbff;
   }
   .detail-content-wrapper {
     max-height: 0;
     overflow: hidden;
+<<<<<<< HEAD
     transition: max-height 0.4s ease-out, opacity 0.3s ease;
     opacity: 0;
   }
@@ -64,6 +82,24 @@
   .clickable-row:hover td {
     background-color: #f8f9ff;
   }
+=======
+    transition: max-height 0.4s ease-out, opacity 0.3s ease, padding 0.3s ease;
+    opacity: 0;
+  }
+  .detail-row.show .detail-content-wrapper {
+    max-height: 500px; /* Nilai besar agar konten tidak terpotong */
+    opacity: 1;
+    padding: 1.5rem 0;
+  }
+
+  /* Interaction UI */
+  .clickable-row:hover td {
+    background-color: #f8f9ff;
+  }
+  .clickable-row i.bi-chevron-down {
+    transition: transform 0.3s ease;
+  }
+>>>>>>> 178d138f8f6948b9f4d13bc0de162e641326e9b5
   .clickable-row.active {
     background-color: #f8fbff;
   }
@@ -71,6 +107,11 @@
     transform: rotate(180deg);
     color: #0d6efd !important;
   }
+<<<<<<< HEAD
+=======
+
+  /* Stats & Insights */
+>>>>>>> 178d138f8f6948b9f4d13bc0de162e641326e9b5
   .report-section {
     padding: 20px;
     border-bottom: 1px solid #f8f9fa;

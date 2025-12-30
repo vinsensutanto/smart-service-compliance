@@ -3,6 +3,7 @@
 import os
 from flask import Blueprint, render_template
 from flask_login import current_user, login_required
+<<<<<<< HEAD
 
 from app.extensions import db
 from app.models.workstation import Workstation
@@ -13,6 +14,14 @@ from app.models.service_checklist import ServiceChecklist
 from app.extensions import socketio
 from app.services import session_manager
 from app.services.stream_controller import publish_end_stream
+=======
+from app.models.workstation import Workstation
+from app.extensions import db
+from app.services.session_manager import active_sessions
+from app.models.sop_service import SOPService 
+from app.models.sop_step import SOPStep    
+from app.models.service_record import ServiceRecord   
+>>>>>>> 178d138f8f6948b9f4d13bc0de162e641326e9b5
 
 cs_bp = Blueprint("cs", __name__, template_folder="templates")
 
@@ -91,12 +100,26 @@ def dashboard():
 @cs_bp.route("/service-guidelines")
 @login_required
 def service_guidelines():
+<<<<<<< HEAD
     services = db.session.query(SOPService).all()
     steps = (
         db.session.query(SOPStep)
         .order_by(SOPStep.step_number.asc())
         .all()
     )
+=======
+    # 1. Ambil semua data layanan (SV0001, SV0002, dll)
+    services = db.session.query(SOPService).all()
+    
+    # 2. Ambil semua data langkah-langkah (ST0001, ST0002, dll)
+    # Kita ambil semua sekaligus karena ini halaman statis
+    steps = db.session.query(SOPStep).order_by(SOPStep.step_number.asc()).all()
+    
+    # 3. Kirim ke file HTML kamu
+    return render_template('cs/service-guidelines.html', 
+                           services=services, 
+                           steps=steps)
+>>>>>>> 178d138f8f6948b9f4d13bc0de162e641326e9b5
 
     return render_template(
         "cs/service-guidelines.html",
