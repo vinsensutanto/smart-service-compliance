@@ -1,0 +1,310 @@
+{% extends "layouts/app.html" %} {% block content %}
+
+<style>
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+    background-color: #f8f9fa;
+  }
+  /* Memastikan wrapper mengisi sisa tinggi layar agar panel tidak scroll berantakan */
+  .history-wrapper {
+    height: calc(100vh - 100px);
+    display: flex;
+    flex-direction: column;
+  }
+  .panel-card {
+    background: white;
+    border-radius: 15px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  }
+  .content-scroll-area {
+    flex: 1;
+    overflow-y: auto;
+  }
+  .table-history {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+  .table-history thead th {
+    position: sticky;
+    top: 0;
+    background: #fcfcfc;
+    color: #6c757d;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    padding: 12px 15px;
+    border-bottom: 1px solid #eee;
+    z-index: 10;
+  }
+  .table-history tbody td {
+    padding: 12px 15px;
+    border-bottom: 1px solid #f1f1f1;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+  .detail-row {
+    background-color: #f8fbff;
+  }
+  .detail-content-wrapper {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s ease-out, opacity 0.3s ease;
+    opacity: 0;
+  }
+  .detail-row.show .detail-content-wrapper {
+    max-height: 500px;
+    opacity: 1;
+    padding: 1.5rem 0;
+  }
+  .clickable-row:hover td {
+    background-color: #f8f9ff;
+  }
+  .clickable-row.active {
+    background-color: #f8fbff;
+  }
+  .clickable-row.active i.bi-chevron-down {
+    transform: rotate(180deg);
+    color: #0d6efd !important;
+  }
+  .report-section {
+    padding: 20px;
+    border-bottom: 1px solid #f8f9fa;
+  }
+  .stats-big {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: #0d6efd;
+    line-height: 1;
+  }
+  .stats-sub {
+    font-size: 0.65rem;
+    color: #adb5bd;
+    text-transform: uppercase;
+    font-weight: 700;
+    margin-bottom: 5px;
+  }
+  .compliance-tag {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    font-weight: bold;
+  }
+  .insight-pill {
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 10px;
+    border-left: 4px solid #0d6efd;
+  }
+  .insight-label {
+    font-size: 0.6rem;
+    color: #6c757d;
+    text-transform: uppercase;
+    font-weight: bold;
+  }
+  .insight-value {
+    font-size: 0.85rem;
+    font-weight: bold;
+    color: #212529;
+    display: block;
+  }
+</style>
+
+<div class="container py-3 history-wrapper">
+  <div class="row align-items-center mb-3 flex-shrink-0">
+    <div class="col-12 d-flex align-items-center">
+      <a href="javascript:history.back()" class="btn btn-white btn-sm rounded-circle shadow-sm me-3 border">
+        <i class="bi bi-arrow-left"></i>
+      </a>
+      <div>
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb mb-0" style="font-size: 0.7rem">
+            <li class="breadcrumb-item"><a href="{{ url_for('spv.performance_analytics') }}">Analytics</a></li>
+            <li class="breadcrumb-item active">Staff: {{ staff.name }}</li>
+          </ol>
+        </nav>
+        <h2 class="fw-bold text-dark mb-0">Officer Performance Detail</h2>
+      </div>
+    </div>
+  </div>
+
+  <div class="row flex-grow-1 overflow-hidden">
+    <div class="col-md-8 h-100">
+      <div class="panel-card">
+        <div class="content-scroll-area">
+          <table class="table-history">
+            <thead>
+              <tr>
+                <th>Service Details</th>
+                <th>Duration</th>
+                <th>Date & Time</th>
+                <th>Status</th>
+                <th>Score</th>
+                <th style="width: 40px"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for s in sessions %}
+              <tr
+                class="clickable-row"
+                id="row-{{ s.service_record_id }}"
+                onclick="toggleDetail('{{ s.service_record_id }}')"
+              >
+                <td>
+                  <span class="d-block fw-bold text-dark">
+                    {{ s.service_detected or 'Manual Input' }}
+                  </span>
+                  <small class="text-muted" style="font-size: 0.65rem">
+                    ID: {{ s.service_record_id }}
+                  </small>
+                </td>
+                <td>
+                  <span class="fw-bold text-dark">
+                    {% if s.duration %}{{ s.duration // 60 }}m {{ s.duration % 60 }}s{% else %} -- {% endif %}
+                  </span>
+                </td>
+                <td>
+                  <div style="font-size: 0.75rem">
+                    {{ s.start_time.strftime('%d %b %Y') }}
+                  </div>
+                  <small class="text-muted">
+                    {{ s.start_time.strftime('%H:%M') }}
+                  </small>
+                </td>
+                <td>
+                  {% if s.is_normal_flow %}
+                  <span class="compliance-tag bg-success-subtle text-success">COMPLETE</span>
+                  {% else %}
+                  <span class="compliance-tag bg-warning-subtle text-warning">BYPASS</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <span
+                    class="badge {% if s.calculated_score >= 80 %} bg-success {% elif s.calculated_score >= 60 %} bg-warning text-dark {% else %} bg-danger {% endif %} mt-1"
+                    style="font-size: 0.6rem"
+                  >
+                    Score: {{ s.calculated_score }}%
+                  </span>
+                </td>
+                <td>
+                  <i class="bi bi-chevron-down small text-muted"></i>
+                </td>
+              </tr>
+
+              <tr id="detail-{{ s.service_record_id }}" class="detail-row">
+                <td colspan="6" class="p-0">
+                  <div class="detail-content-wrapper px-4">
+                    <div class="row g-3">
+                      <div class="col-md-12">
+                        <h6 class="fw-bold small text-muted text-uppercase mb-2" style="font-size: 0.6rem">
+                          Interaction Transcript (Audit)
+                        </h6>
+                        <div class="p-3 bg-white border rounded small text-secondary shadow-sm" style="font-size: 0.75rem; line-height: 1.5; font-style: italic;">
+                          "{{ s.text or 'No transcript available for this session.' }}"
+                        </div>
+                      </div>
+
+                      {% if s.reason %}
+                      <div class="col-md-12">
+                        <div class="p-2 bg-danger-subtle text-danger rounded small" style="font-size: 0.7rem">
+                          <strong><i class="bi bi-info-circle-fill"></i> Override Reason:</strong> {{ s.reason }}
+                        </div>
+                      </div>
+                      {% endif %}
+                    </div>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4 h-100">
+      <div class="panel-card">
+        <div class="p-3 bg-light border-bottom sticky-top">
+          <h6 class="fw-bold mb-0" style="font-size: 0.8rem">
+            <i class="bi bi-person-badge me-2"></i> STAFF INSIGHTS
+          </h6>
+        </div>
+
+        <div class="content-scroll-area">
+          <div class="report-section">
+            <p class="stats-sub">Avg. Performance Score</p>
+            <div class="d-flex align-items-end gap-2">
+              <h1 class="stats-big">{{ avg_performance }}%</h1>
+              <small class="text-muted mb-1" style="font-size: 0.65rem">
+                / {{ total }} sessions
+              </small>
+            </div>
+            <div class="progress mt-2" style="height: 6px">
+              <div
+                class="progress-bar {% if avg_performance >= 80 %} bg-success {% else %} bg-warning {% endif %}"
+                style="width: {{ avg_performance }}%"
+              ></div>
+            </div>
+          </div>
+
+          <div class="report-section">
+            <p class="stats-sub mb-3">Service Statistics</p>
+            <div class="insight-pill">
+              <span class="insight-label">Officer Name</span>
+              <span class="insight-value">{{ staff.name }}</span>
+              <small class="text-muted" style="font-size: 0.65rem">ID: {{ staff.user_id }}</small>
+            </div>
+            <div class="insight-pill" style="border-left-color: #6610f2">
+              <span class="insight-label">Total Completed SOPs</span>
+              <span class="insight-value">
+                {{ sessions|selectattr('is_normal_flow', 'equalto', 1)|list|length }}
+              </span>
+              <small class="text-muted" style="font-size: 0.65rem">Across finished services</small>
+            </div>
+          </div>
+
+          <div class="report-section border-bottom-0">
+            <p class="stats-sub">Avg. Service Time</p>
+            <h1 class="stats-big text-dark">
+              {{ avg_dur // 60 }}m {{ avg_dur % 60 }}s
+            </h1>
+            <small class="text-muted d-block mt-1" style="font-size: 0.6rem">
+              Average across all finished sessions
+            </small>
+          </div>
+
+          <div class="mx-3 mb-3 p-3 rounded shadow-sm" style="background-color: #f0f7ff; border: 1px solid #d0e5ff">
+            <h6 class="fw-bold text-primary mb-1" style="font-size: 0.7rem">Supervisor Action</h6>
+            <p class="mb-0 text-muted" style="font-size: 0.65rem; line-height: 1.4">
+              Review <b>BYPASS</b> sessions to understand if the officer requires additional training or technical support.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function toggleDetail(id) {
+    const detailRow = document.getElementById("detail-" + id);
+    const mainRow = document.getElementById("row-" + id);
+    const isShowing = detailRow.classList.contains("show");
+
+    document.querySelectorAll(".detail-row").forEach((row) => row.classList.remove("show"));
+    document.querySelectorAll(".clickable-row").forEach((row) => row.classList.remove("active"));
+
+    if (!isShowing) {
+      detailRow.classList.add("show");
+      mainRow.classList.add("active");
+    }
+  }
+</script>
+
+{% endblock %}

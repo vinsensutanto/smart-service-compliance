@@ -5,17 +5,17 @@
   html,
   body {
     height: 100%;
-    /* Mengikuti CS Dashboard: overflow hidden jika ingin fit screen, 
-       tapi jika tabel panjang, biarkan default atau gunakan overflow-y: auto */
+    overflow: hidden; /* Mengunci scroll utama body */
     background-color: #f8f9fa;
   }
 
-  /* Menggunakan wrapper yang sama dengan CS Dashboard untuk konsistensi margin */
+  /* Mengunci tinggi wrapper utama agar pas di screen */
   .dashboard-wrapper {
     height: calc(100vh - 100px);
     display: flex;
     flex-direction: column;
-    padding-top: 1rem; /* Menyamakan py-3 di CS */
+    width: 100%;
+    overflow-x: hidden; /* Mencegah pergeseran horizontal */
   }
 
   .card {
@@ -25,7 +25,6 @@
     background: white;
   }
 
-  /* Padding tabel dan header disamakan dengan CS Dashboard */
   .card-header {
     background-color: white !important;
     border-bottom: 1px solid #f1f1f1 !important;
@@ -35,7 +34,7 @@
   .status-badge {
     padding: 5px 12px;
     border-radius: 8px;
-    font-size: 0.7rem; /* Diperkecil agar konsisten dengan badge CS */
+    font-size: 0.7rem;
     font-weight: 600;
   }
 
@@ -56,13 +55,14 @@
   }
 
   .stats-label {
-    font-size: 0.65rem; /* Menyamakan stats di CS */
+    font-size: 0.65rem;
     color: #adb5bd;
     text-transform: uppercase;
     font-weight: 700;
     letter-spacing: 0.5px;
   }
 
+  /* Pulse Animation untuk Live Monitoring */
   .pulse-dot {
     height: 8px;
     width: 8px;
@@ -80,21 +80,30 @@
     100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(25, 135, 84, 0); }
   }
 
-  /* Scrollbar custom agar sama dengan CS Dashboard */
+  /* Scroll area independen untuk tabel dan alert */
   .scroll-area {
+    flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
   }
-  .scroll-area::-webkit-scrollbar { width: 6px; }
+  
+  .scroll-area::-webkit-scrollbar { width: 4px; }
   .scroll-area::-webkit-scrollbar-thumb { background: #e0e0e0; border-radius: 10px; }
+
+  /* Mencegah row luber horizontal */
+  .row {
+    margin-right: 0;
+    margin-left: 0;
+  }
 </style>
 
-<div class="container py-3 dashboard-wrapper">
+<div class="container-fluid py-3 dashboard-wrapper">
   <div class="row align-items-center mb-3 flex-shrink-0">
     <div class="col-md-7">
       <h2 class="fw-bold text-dark mb-1">Supervisor Dashboard</h2>
       <p class="text-muted small mb-0">
         Branch: <span class="fw-bold text-primary">BCA Syariah - Jakarta</span> | 
-        Status: <span class="badge bg-light text-success border animate-pulse">Live Monitoring</span>
+        Status: <span class="badge bg-light text-success border"><span class="pulse-dot"></span>Live Monitoring</span>
       </p>
     </div>
     <div class="col-md-5 text-md-end">
@@ -128,16 +137,16 @@
   </div>
 
   <div class="row g-3 flex-grow-1 overflow-hidden">
-    <div class="col-lg-8 h-100">
-      <div class="card h-100 d-flex flex-column">
-        <div class="card-header d-flex justify-content-between align-items-center">
+    <div class="col-lg-8 h-100 d-flex flex-column">
+      <div class="card h-100 d-flex flex-column overflow-hidden">
+        <div class="card-header d-flex justify-content-between align-items-center flex-shrink-0">
           <h6 class="fw-bold mb-0 text-dark">Station Monitoring</h6>
           <span class="badge bg-dark small">{{ stations|length }} Stations</span>
         </div>
         <div class="card-body p-0 scroll-area">
           <div class="table-responsive">
             <table class="table align-middle mb-0 table-hover">
-              <thead class="bg-light">
+              <thead class="bg-light sticky-top">
                 <tr class="stats-label">
                   <th class="ps-4 py-3">Station</th>
                   <th>Service Activity</th>
@@ -156,15 +165,11 @@
                     {% if session %}
                     <div class="d-flex flex-column">
                       <div class="d-flex align-items-center mb-1">
-                        <div class="d-flex justify-content-center" style="width: 20px; margin-right: 8px">
-                          <i class="bi bi-person-circle text-primary"></i>
-                        </div>
+                        <i class="bi bi-person-circle text-primary me-2" style="font-size: 0.8rem"></i>
                         <span class="fw-semibold small">{{ user.name if user else 'Staff' }}</span>
                       </div>
                       <div class="d-flex align-items-center">
-                        <div class="d-flex justify-content-center" style="width: 20px; margin-right: 8px">
-                          <i class="bi bi-briefcase text-primary" style="font-size: 0.75rem"></i>
-                        </div>
+                        <i class="bi bi-briefcase text-primary me-2" style="font-size: 0.7rem"></i>
                         <small class="text-primary fw-bold" style="font-size: 0.65rem">
                           {{ session.service_detected }}
                         </small>
@@ -193,9 +198,9 @@
       </div>
     </div>
 
-    <div class="col-lg-4 h-100">
-      <div class="card h-100 d-flex flex-column">
-        <div class="card-header">
+    <div class="col-lg-4 h-100 d-flex flex-column">
+      <div class="card h-100 d-flex flex-column overflow-hidden">
+        <div class="card-header flex-shrink-0">
           <h6 class="fw-bold mb-0 text-danger">Bypass Alerts</h6>
         </div>
         <div class="card-body px-3 py-3 scroll-area">
@@ -203,7 +208,7 @@
             {% for record, user in alerts %}
             <div class="alert-card p-3 mb-2 shadow-sm border">
               <div class="d-flex justify-content-between mb-1">
-                <span class="fw-bold small text-dark">{{ user.name if user else 'Unknown Staff' }}</span>
+                <span class="fw-bold small text-dark">{{ user.name if user else 'Staff' }}</span>
                 <small class="text-danger fw-bold" style="font-size: 0.6rem">{{ record.service_record_id }}</small>
               </div>
               <div class="small text-muted mb-2" style="font-size: 0.65rem">

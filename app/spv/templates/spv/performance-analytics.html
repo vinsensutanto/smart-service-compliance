@@ -1,93 +1,221 @@
 {% extends "layouts/app.html" %} {% block content %}
-<div class="container py-3 dashboard-wrapper">
-  <div class="row align-items-center mb-4 flex-shrink-0">
+
+<style>
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    background-color: #f8f9fa;
+  }
+
+  .dashboard-wrapper {
+    height: calc(100vh - 100px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .leaderboard-column {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .section-top-5 {
+    flex: 0 1 auto;
+    max-height: 40%;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .section-all-staff {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .card {
+    border-radius: 15px;
+    border: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    background-color: white;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  /* Header Card: Font weight dikurangi ke 700 */
+  .list-header-custom {
+    padding: 12px 18px;
+    background: #fcfcfc;
+    border-bottom: 1px solid #f1f1f1;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #495057;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  .internal-scroll {
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  .internal-scroll::-webkit-scrollbar { width: 4px; }
+  .internal-scroll::-webkit-scrollbar-thumb { background: #e0e0e0; border-radius: 10px; }
+
+  .list-group-item-action {
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none !important;
+    margin-bottom: 2px;
+  }
+  
+  .list-group-item-action:hover {
+    background-color: #f0f7ff !important;
+    transform: translateX(5px);
+  }
+
+  /* Skor: Tetap tebal agar menonjol sebagai indikator performa */
+  .score-text {
+    font-weight: 700;
+    font-size: 0.85rem;
+  }
+
+  .btn-detail-arrow {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 2px 8px;
+    color: #0d6efd;
+    font-size: 0.8rem;
+    border: 1px solid #eee;
+    transition: 0.2s;
+  }
+</style>
+
+<div class="container-fluid py-3 dashboard-wrapper">
+  <div class="row align-items-center mb-3 flex-shrink-0">
     <div class="col-md-7">
       <h2 class="fw-bold text-dark mb-1">Performance Analytics</h2>
-      <p class="text-muted small mb-0">
-        Reviewing team compliance and service efficiency metrics.
-      </p>
+      <p class="text-muted small mb-0">Reviewing team compliance and officer rankings.</p>
     </div>
   </div>
 
-  <div class="row g-3 mb-4">
+  <div class="row g-3 mb-4 flex-shrink-0">
     <div class="col-md-3">
       <div class="card p-3 border-start border-primary border-4">
-        <span class="stats-label">Total Interactions</span>
+        <span class="small text-muted text-uppercase" style="font-weight: 500; font-size: 0.65rem;">Total Interactions</span>
         <h2 class="fw-bold mb-0">{{ total_sessions }}</h2>
       </div>
     </div>
     <div class="col-md-3">
       <div class="card p-3 border-start border-success border-4">
-        <span class="stats-label">Avg Compliance Rate</span>
+        <span class="small text-muted text-uppercase" style="font-weight: 500; font-size: 0.65rem;">Avg Compliance Rate</span>
         <h2 class="fw-bold mb-0 text-success">{{ compliance_rate }}%</h2>
       </div>
     </div>
     <div class="col-md-3">
       <div class="card p-3 border-start border-info border-4">
-        <span class="stats-label">Services Tracked</span>
+        <span class="small text-muted text-uppercase" style="font-weight: 500; font-size: 0.65rem;">Services Tracked</span>
         <h2 class="fw-bold mb-0">3</h2>
       </div>
     </div>
     <div class="col-md-3">
       <div class="card p-3 border-start border-danger border-4">
-        <span class="stats-label">System Accuracy</span>
+        <span class="small text-muted text-uppercase" style="font-weight: 500; font-size: 0.65rem;">System Accuracy</span>
         <h2 class="fw-bold mb-0 text-danger">85.4%</h2>
       </div>
     </div>
   </div>
 
-  <div class="row g-4">
-    <div class="col-lg-8">
-      <div class="card h-100 p-4">
-        <h6 class="fw-bold mb-4">Weekly Compliance Trend</h6>
-        <canvas id="complianceChart" style="max-height: 300px"></canvas>
+  <div class="row g-4 main-content-row overflow-hidden">
+    <div class="col-lg-8 h-100">
+      <div class="card p-4 h-100 d-flex flex-column">
+        <h6 class="fw-bold mb-4 text-dark">Weekly Compliance Trend</h6>
+        <div class="flex-grow-1" style="position: relative">
+          <canvas id="complianceChart"></canvas>
+        </div>
       </div>
     </div>
 
-    <div class="col-lg-4">
-      <div class="card h-100">
-        <div class="card-header bg-white py-3">
-          <h6 class="fw-bold mb-0 text-dark">Top Performing Officers</h6>
-        </div>
-        <div class="card-body p-0">
-          <ul class="list-group list-group-flush">
-            {% for item in leaderboard %}
-            <li
-              class="list-group-item d-flex justify-content-between align-items-center py-3"
-            >
-              <div class="d-flex align-items-center">
-                <div
-                  class="me-3 fw-bold text-muted"
-                  style="width: 25px; font-size: 0.8rem"
-                >
-                  #{{ loop.index }}
-                </div>
-
-                <div>
-                  <div class="fw-bold small text-dark">{{ item.name }}</div>
-                  <small class="text-muted" style="font-size: 0.65rem">
-                    {{ item.count }} Sessions
-                  </small>
-                </div>
+    <div class="col-lg-4 h-100">
+      <div class="leaderboard-column">
+        
+        <div class="section-top-5">
+          <div class="card shadow-sm border-top border-warning border-3">
+            <div class="list-header-custom">
+              <i class="bi bi-trophy-fill text-warning me-2"></i> Top 5 Performers
+            </div>
+            <div class="internal-scroll p-2">
+              <div class="list-group list-group-flush">
+                {% for item in leaderboard[:5] %}
+                <a href="{{ url_for('spv.staff_performance_detail', user_id=item.user_id) }}" 
+                   class="list-group-item list-group-item-action d-flex justify-content-between align-items-center rounded-3">
+                  <div class="d-flex align-items-center">
+                    <span class="me-3 {% if loop.index <= 3 %}text-warning fw-bold{% else %}text-muted{% endif %}" style="width: 20px; font-size: 0.8rem;">#{{ loop.index }}</span>
+                    <div>
+                      <div class="text-dark mb-0 small" style="font-weight: 600;">{{ item.name }}</div>
+                      <div class="text-muted" style="font-size: 0.6rem;">{{ item.count }} Sessions</div>
+                    </div>
+                  </div>
+                  <div class="d-flex align-items-center">
+                    <div class="text-end me-3" style="min-width: 75px">
+                      <span class="score-text d-block {% if item.avg_score >= 80 %}text-success{% elif item.avg_score >= 60 %}text-warning{% else %}text-danger{% endif %}">{{ item.avg_score }}%</span>
+                      <div class="progress mt-1" style="height: 4px; width: 100%">
+                        <div class="progress-bar {% if item.avg_score >= 80 %}bg-success{% elif item.avg_score >= 60 %}bg-warning{% else %}bg-danger{% endif %}" style="width: {{ item.avg_score }}%"></div>
+                      </div>
+                    </div>
+                    <div class="btn-detail-arrow shadow-sm">
+                      <i class="bi bi-chevron-right"></i>
+                    </div>
+                  </div>
+                </a>
+                {% endfor %}
               </div>
-
-              <div class="text-end">
-                <div
-                  class="fw-bold small {% if item.avg_score >= 80 %}text-success{% elif item.avg_score >= 60 %}text-warning{% else %}text-danger{% endif %}"
-                >
-                  {{ item.avg_score }}
-                </div>
-                <div class="progress mt-1" style="height: 4px; width: 60px">
-                  <div
-                    class="progress-bar {% if item.avg_score >= 80 %}bg-success{% elif item.avg_score >= 60 %}bg-warning{% else %}bg-danger{% endif %}"
-                    style="width: {{ item.avg_score }}%"
-                  ></div>
-                </div>
-              </div>
-            </li>
-            {% endfor %}
-          </ul>
+            </div>
+          </div>
         </div>
+
+        <div class="section-all-staff">
+          <div class="card shadow-sm border-top border-primary border-3">
+            <div class="list-header-custom">
+              <i class="bi bi-people-fill text-primary me-2"></i> All Active Staff
+            </div>
+            <div class="internal-scroll p-2">
+              <div class="list-group list-group-flush">
+                {% for item in leaderboard %}
+                <a href="{{ url_for('spv.staff_performance_detail', user_id=item.user_id) }}" 
+                   class="list-group-item list-group-item-action d-flex justify-content-between align-items-center rounded-3">
+                  <div class="d-flex align-items-center">
+                    <span class="me-3 text-muted" style="width: 20px; font-size: 0.8rem;">#{{ loop.index }}</span>
+                    <div>
+                      <div class="text-dark mb-0 small" style="font-weight: 600;">{{ item.name }}</div>
+                      <div class="text-muted" style="font-size: 0.6rem;">{{ item.count }} Sessions</div>
+                    </div>
+                  </div>
+                  <div class="d-flex align-items-center">
+                    <div class="text-end me-3" style="min-width: 75px">
+                      <span class="score-text d-block {% if item.avg_score >= 80 %}text-success{% elif item.avg_score >= 60 %}text-warning{% else %}text-danger{% endif %}">{{ item.avg_score }}%</span>
+                      <div class="progress mt-1" style="height: 4px; width: 100%">
+                        <div class="progress-bar {% if item.avg_score >= 80 %}bg-success{% elif item.avg_score >= 60 %}bg-warning{% else %}bg-danger{% endif %}" style="width: {{ item.avg_score }}%"></div>
+                      </div>
+                    </div>
+                    <div class="btn-detail-arrow shadow-sm">
+                      <i class="bi bi-chevron-right"></i>
+                    </div>
+                  </div>
+                </a>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+        
       </div>
     </div>
   </div>
@@ -104,7 +232,7 @@
               label: 'Total Sessions',
               data: {{ totals|safe }},
               borderColor: '#0d6efd',
-              backgroundColor: 'rgba(13, 110, 253, 0.1)',
+              backgroundColor: 'rgba(13, 110, 253, 0.05)',
               fill: true,
               tension: 0.4
           }, {
@@ -117,31 +245,15 @@
           }]
       },
       options: {
+          maintainAspectRatio: false,
           responsive: true,
           plugins: { legend: { position: 'bottom' } },
           scales: {
-              y: { beginAtZero: true, grid: { display: false } },
+              y: { beginAtZero: true, grid: { borderDash: [2, 2], drawBorder: false } },
               x: { grid: { display: false } }
           }
       }
   });
 </script>
 
-<style>
-  .stats-label {
-    font-size: 0.65rem;
-    color: #adb5bd;
-    text-transform: uppercase;
-    font-weight: 700;
-  }
-  .card {
-    border-radius: 15px;
-    border: none;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-  }
-  .dashboard-wrapper {
-    min-height: 100vh;
-    background-color: #f8f9fa;
-  }
-</style>
 {% endblock %}

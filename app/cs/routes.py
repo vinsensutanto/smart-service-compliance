@@ -24,11 +24,19 @@ cs_bp = Blueprint("cs", __name__, template_folder="templates")
 @login_required
 @role_required(["Customer Service"])
 def dashboard():
-    
-    pc_id = os.getenv("PC_ID")  # read from env
-        
-
+    # 1. WAJIB: Inisialisasi semua variabel lokal di awal
+    workstation = None
     active_session = None
+    initial_payload = None
+    
+    # 2. Ambil PC_ID dari environment
+    pc_id = os.getenv("PC_ID")
+    
+    # 3. Query (Jika PC_ID ada, isi variabel workstation)
+    if pc_id:
+        workstation = db.session.query(Workstation).filter_by(pc_id=pc_id).first()
+
+    # 4. Sekarang aman, karena 'workstation' sudah dikenal (meskipun isinya None)
     if workstation:
         active_session = (
             db.session.query(ServiceRecord)
@@ -40,46 +48,38 @@ def dashboard():
             .first()
         )
         
-    initial_payload = None
-
-    if active_session:
-        # Get workstation
-        workstation = (
-            db.session.query(Workstation)
-            .filter_by(workstation_id=active_session.workstation_id)
-            .first()
-        )
-
-        # Fetch all SOP steps for the service
-        db_checklist = (
-            db.session.query(SOPStep, ServiceChecklist)
-            .outerjoin(
-                ServiceChecklist,
-                (ServiceChecklist.step_id == SOPStep.step_id) &
-                (ServiceChecklist.service_record_id == active_session.service_record_id)
+        # 5. Jika ada session, siapkan payload-nya
+        if active_session:
+            # Query checklist dari database
+            db_checklist = (
+                db.session.query(SOPStep, ServiceChecklist)
+                .outerjoin(
+                    ServiceChecklist,
+                    (ServiceChecklist.step_id == SOPStep.step_id) &
+                    (ServiceChecklist.service_record_id == active_session.service_record_id)
+                )
+                .filter(SOPStep.service_id == active_session.service_id)
+                .order_by(SOPStep.step_number)
+                .all()
             )
-            .filter(SOPStep.service_id == active_session.service_id)
-            .order_by(SOPStep.step_number)
-            .all()
-        )
 
-        checklist = [
-            {
-                "step_id": step.step_id,
-                "description": step.step_description,
-                "checked": sc.is_checked if sc else False
+            checklist = [
+                {
+                    "step_id": step.step_id,
+                    "description": step.step_description,
+                    "checked": sc.is_checked if sc else False
+                }
+                for step, sc in db_checklist
+            ]
+
+            initial_payload = {
+                "session_id": active_session.service_record_id,
+                "service": active_session.service_detected,
+                "confidence": active_session.confidence or 0,
+                "sop": checklist,
             }
-            for step, sc in db_checklist
-        ]
 
-        initial_payload = {
-            "session_id": active_session.service_record_id,
-            "service_record_id": active_session.service_record_id,
-            "service": active_session.service_detected,
-            "confidence": active_session.confidence or 0,
-            "sop": checklist,
-        }
-
+    # 6. Kirim ke template
     return render_template(
         "cs/dashboard.html",
         workstation=workstation,
