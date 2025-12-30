@@ -14,6 +14,7 @@ from app.extensions import socketio
 from app.services import session_manager
 from app.services.stream_controller import publish_end_stream
 from app.utils.decorators import role_required
+from app.utils.scoring import calculate_session_score
 
 cs_bp = Blueprint("cs", __name__, template_folder="templates")
 
@@ -132,24 +133,23 @@ def my_history():
         valid_durations = []
 
         for record in history:
-            # 🔹 HITUNG SCORE PER SESSION
-            record.session_score = calculate_session_score(
-                record.is_normal_flow,
-                record.reason
-            )
+            # 🔹 GUNAKAN FUNGSI DARI UTILS
+            # Jika utils Anda butuh object record utuh:
+            record.session_score = calculate_session_score(record) 
+            
+            # Catatan: Jika fungsi di utils Anda hanya menerima (is_normal, reason), 
+            # maka kodenya tetap record.session_score = calculate_session_score(record.is_normal_flow, record.reason)
+            # tapi fungsi yang dipanggil sudah berasal dari utils (global).
 
             total_weighted_score += record.session_score
 
             if record.duration and record.duration > 0:
                 valid_durations.append(record.duration)
 
-        final_performance_score = round(
-            total_weighted_score / total_sessions, 1
-        )
+        final_performance_score = round(total_weighted_score / total_sessions, 1)
 
         if valid_durations:
             avg_duration = int(sum(valid_durations) / len(valid_durations))
-
             fastest_service = min(
                 [r for r in history if r.duration and r.duration > 0],
                 key=lambda x: x.duration,
@@ -164,18 +164,6 @@ def my_history():
         avg_duration=avg_duration,
         fastest_service=fastest_service
     )
-
-def calculate_session_score(is_normal, reason):
-    if is_normal == 1:
-        return 100
-
-    weights = {
-        "System Error / AI not responding": 90,
-        "Customer cancelled or left early": 80,
-        "Staff forgot to finish session": 40,
-    }
-    return weights.get(reason, 60)
-
 
 @socketio.on("session_end")
 def handle_manual_end(data):

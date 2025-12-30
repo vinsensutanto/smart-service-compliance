@@ -114,21 +114,23 @@ def reject_user(user_id):
 @login_required
 @role_required(["Supervisor"])
 def performance_analytics():
-    # 1. Query hanya sesi yang sudah SELESAI (Sesuai Logika CS)
+    # 1. Ambil data sesi yang sudah selesai untuk statistik utama
     finished_query = ServiceRecord.query.filter(ServiceRecord.end_time.isnot(None))
     total_sessions = finished_query.count()
     
+    # Penanganan jika belum ada data sesi sama sekali
     if total_sessions == 0:
         return render_template("spv/performance-analytics.html", 
                                total_sessions=0, compliance_rate=0,
                                dates="[]", totals="[]", compliances="[]", leaderboard=[])
 
-    # 2. Hitung Average Performance Score (Weighted)
+    # 2. Hitung Average Performance Score (Weighted) untuk seluruh tim
+    # Kita ambil semua sesi selesai dan kirim objeknya ke calculate_session_score
     all_sessions = finished_query.all()
-    total_weighted_sum = sum(calculate_session_score(s.is_normal_flow, s.reason) for s in all_sessions)
+    total_weighted_sum = sum(calculate_session_score(s) for s in all_sessions)
     compliance_rate = round(total_weighted_sum / total_sessions, 1)
     
-    # 3. Trend Data untuk Chart (Hanya Sesi Selesai)
+    # 3. Trend Data untuk Chart (Dikelompokkan berdasarkan tanggal)
     trend_data = db.session.query(
         func.date(ServiceRecord.start_time).label('date'),
         func.count(ServiceRecord.service_record_id).label('total'),
@@ -141,17 +143,23 @@ def performance_analytics():
     totals = [int(d.total) for d in trend_data]
     compliances = [int(d.compliant if d.compliant else 0) for d in trend_data]
 
-    # 4. Leaderboard Staf (Weighted Score)
+    # 4. Leaderboard Staf (Menghitung rata-rata skor per individu)
+    # Gunakan join untuk mendapatkan nama user dan data sesinya sekaligus
     raw_leaderboard = db.session.query(
-        User.user_id, User.name, ServiceRecord.is_normal_flow, ServiceRecord.reason
+        User.user_id, 
+        User.name, 
+        ServiceRecord
     ).join(ServiceRecord, User.user_id == ServiceRecord.user_id)\
      .filter(ServiceRecord.end_time.isnot(None)).all()
 
     processed_stats = {}
-    for uid, name, is_normal, reason in raw_leaderboard:
-        score = calculate_session_score(is_normal, reason)
+    for uid, name, record in raw_leaderboard:
+        # Panggil fungsi scoring dengan mengirim objek 'record' utuh
+        score = calculate_session_score(record)
+        
         if uid not in processed_stats:
             processed_stats[uid] = {"name": name, "total_score": 0, "count": 0}
+        
         processed_stats[uid]["total_score"] += score
         processed_stats[uid]["count"] += 1
 
@@ -160,15 +168,18 @@ def performance_analytics():
         final_leaderboard.append({
             "user_id": uid,
             "name": data["name"],
+            # Menghitung rata-rata skor performa per staf
             "avg_score": round(data["total_score"] / data["count"], 1),
             "count": data["count"]
         })
 
-    final_leaderboard = sorted(final_leaderboard, key=lambda x: x['avg_score'], reverse=True)[:5]
+    # Urutkan dari skor tertinggi (Top Performers)
+    final_leaderboard = sorted(final_leaderboard, key=lambda x: x['avg_score'], reverse=True)
 
     return render_template("spv/performance-analytics.html", 
                            total_sessions=total_sessions,
                            compliance_rate=compliance_rate,
+                           # json.dumps digunakan agar data bisa dibaca langsung oleh Chart.js
                            dates=json.dumps(dates),
                            totals=json.dumps(totals),
                            compliances=json.dumps(compliances),
