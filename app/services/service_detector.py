@@ -9,9 +9,8 @@ import re
 SERVICE_RULES = {
     "MBCA_REGISTRATION": {
         "label": "Pendaftaran m-BCA",
-        "threshold": 0.6,   # EARLY lock
+        "threshold": 0.65,
         "keywords": {
-            # strong intent
             "pendaftaran m": 0.7,
             "daftar mbca": 0.7,
             "m bca": 0.5,
@@ -19,7 +18,6 @@ SERVICE_RULES = {
             "bca mobile": 0.6,
             "mobile banking": 0.6,
 
-            # ASR noise
             "m bj ai": 0.4,
             "bj ai": 0.3,
             "pendapatan m": 0.4,
@@ -28,13 +26,11 @@ SERVICE_RULES = {
 
     "OPEN_ACCOUNT": {
         "label": "Pembukaan Rekening",
-        "threshold": 0.65,   # lowered for early lock
+        "threshold": 0.65,
         "keywords": {
-            # PRIMARY (real CS wording)
             "pembukaan rekening": 0.8,
             "rekening tahapan": 0.8,
 
-            # SECONDARY
             "rekening baru": 0.5,
             "buka rekening": 0.6,
             "buat rekening": 0.6,
@@ -45,7 +41,7 @@ SERVICE_RULES = {
 
     "ATM_REPLACEMENT": {
         "label": "Penggantian Kartu ATM",
-        "threshold": 0.7,
+        "threshold": 0.65,
         "keywords": {
             "kartu atm": 0.5,
             "kartu hilang": 0.7,
