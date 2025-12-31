@@ -39,7 +39,11 @@ INSERT INTO users (
 
 ("US0005", "RL0001", "Andi Wijaya", "andiwijaya@example.com",
  "$2b$12$nh5EA8F9Gamwrw6phaY7KuVRp.mgLh/MQkMlBp0ohvtv3bS3H9QNC",
- 1, "2021-12-20 15:00:00", "2021-12-20 15:00:00");
+ 1, "2021-12-20 15:00:00", "2021-12-20 15:00:00"),
+
+("US0006", "RL0002", "Supervisor Siti", "supervisorsiti@example.com",
+ "$2b$12$nh5EA8F9Gamwrw6phaY7KuVRp.mgLh/MQkMlBp0ohvtv3bS3H9QNC",
+ 1, "2021-12-20 15:00:00", "2022-12-20 16:00:00");
 
 -- =========================
 -- WORKSTATIONS

@@ -210,7 +210,7 @@ def staff_performance_detail(user_id):
         
         for s in sessions:
             # Hitung skor tiap sesi (Sesuai CS: 100, 90, 80, 40, 60)
-            s.calculated_score = calculate_session_score(s.is_normal_flow, s.reason)
+            s.calculated_score = calculate_session_score(s)
             total_weighted_score += s.calculated_score
             
             if s.duration and s.duration > 0:

@@ -15,7 +15,8 @@ from app.services.whisper_model import get_whisper_model
 from app.services.service_detector import detect_service, should_lock_service
 from app.services.sop_engine import load_sop_by_service_id
 from app.services.kws_event_handler import handle_kws_event
-
+from scripts.stt_whisper import transcribe_chunk
+import re
 
 # =====================================
 # CONFIG
@@ -118,11 +119,8 @@ def process_audio_chunk(rp_id: str, payload: dict):
     # ---------------------------------
     # Speech-to-text
     # ---------------------------------
-    result = model.transcribe(tmp_path, language="id", verbose=False)
-    text = result.get("text", "").strip()
-
-    if not text:
-        return
+    # result = model.transcribe(tmp_path, language="id", verbose=False)
+    # text = result.get("text", "").strip()
 
     # ---------------------------------
     # Append to service_records.text
@@ -132,6 +130,16 @@ def process_audio_chunk(rp_id: str, payload: dict):
         print(f"[AUDIO] ServiceRecord not found: {sr_id}")
         return
 
+    text = transcribe_chunk(
+        tmp_path,
+        language="id"
+    )
+
+    text = normalize_whisper_text(text)
+    
+    if not text:
+        return
+    
     service_already_locked = bool(record.service_id)
 
     # Append transcript
@@ -146,7 +154,7 @@ def process_audio_chunk(rp_id: str, payload: dict):
     if not service_already_locked:
         service_key, label, confidence, hits = detect_service(full_text)
 
-        if service_key and should_lock_service(confidence):
+        if service_key and should_lock_service(service_key, confidence):
             service_id = SERVICE_KEY_MAP.get(service_key)
             if service_id:
                 record.service_id = service_id
@@ -175,9 +183,9 @@ def process_audio_chunk(rp_id: str, payload: dict):
 
     # ---------------------------------
     # Save chunk audit
-    # ---------------------------------
     last_chunk = (
         db.session.query(ServiceChunk)
+        .filter(ServiceChunk.service_record_id == sr_id)
         .order_by(ServiceChunk.chunk_id.desc())
         .first()
     )
@@ -185,18 +193,36 @@ def process_audio_chunk(rp_id: str, payload: dict):
     chunk_id = ServiceChunk.generate_id(
         last_chunk.chunk_id if last_chunk else None
     )
+    
+    MAX_CHUNK_LEN = 254
 
-    chunk = ServiceChunk(
-        chunk_id=chunk_id,
-        service_record_id=sr_id,
-        text_chunk=text,
-        created_at=datetime.now(timezone.utc)
+    chunks = split_text(text, MAX_CHUNK_LEN)
+
+    last_chunk = (
+        db.session.query(ServiceChunk)
+        .order_by(ServiceChunk.chunk_id.desc())
+        .first()
     )
 
-    db.session.add(chunk)
+    prev_chunk_id = last_chunk.chunk_id if last_chunk else None
+
+    for part in chunks:
+        new_chunk_id = ServiceChunk.generate_id(prev_chunk_id)
+
+        chunk = ServiceChunk(
+            chunk_id=new_chunk_id,
+            service_record_id=sr_id,
+            text_chunk=part,
+            created_at=datetime.now(timezone.utc)
+        )
+
+        db.session.add(chunk)
+        prev_chunk_id = new_chunk_id
+
     db.session.commit()
 
-    print(f"[DB] chunk saved {chunk_id} SR={sr_id}")
+    print(f"[DB] {len(chunks)} chunks saved SR={sr_id}")
+
 
 
 # =====================================
@@ -219,3 +245,15 @@ def start_ingestor(app):
     client.loop_start()
 
     print("[INGESTOR] audio ingestor READY")
+
+def split_text(text, max_len):
+    return [text[i:i+max_len] for i in range(0, len(text), max_len)]
+
+def normalize_whisper_text(text: str) -> str:
+    text = text.replace("...", ",")
+    text = text.replace("..", ",")
+    text = text.replace(" .", ".")
+    text = re.sub(r"\s+,", ",", text)
+    text = re.sub(r"\s+\.", ".", text)
+    text = re.sub(r"\s{2,}", " ", text)
+    return text.strip()

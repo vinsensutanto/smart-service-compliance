@@ -204,7 +204,8 @@ def handle_manual_end(data):
     # End session
     sr_id = session_manager.end_session_by_rp(
         rp_id=rp_id,
-        reason=reason
+        reason=reason,
+        manual_termination=True
     )
 
     if not sr_id:
