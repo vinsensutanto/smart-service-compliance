@@ -1,24 +1,26 @@
+# app/services/stream_controller.py
 import json
+from datetime import datetime, timezone
 import paho.mqtt.publish as publish
 
 MQTT_BROKER = "localhost"
 MQTT_PORT = 1883
 
-STREAM_COMMAND_TOPIC = "stream/command"
 
+def publish_end_stream(rp_id: str):
+    topic = f"server/control/{rp_id}/end"
 
-def publish_end_stream(session_id: str):
     payload = {
-        "command": "end_stream",
-        "session_id": session_id
+        "command": "end",
+        "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     }
 
     publish.single(
-        STREAM_COMMAND_TOPIC,
+        topic,
         payload=json.dumps(payload),
         qos=1,
         hostname=MQTT_BROKER,
         port=MQTT_PORT
     )
 
-    print(f"[STREAM] end_stream published for session {session_id}")
+    print(f"[STREAM] end command sent to RP={rp_id}")

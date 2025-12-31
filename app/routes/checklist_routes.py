@@ -1,6 +1,6 @@
 # app/routes/checklist_routes.py
 
-from datetime import datetime
+from datetime import datetime, timezone
 from app.extensions import socketio, db
 from app.services.session_manager import get_active_session_by_rp
 from app.models.service_checklist import ServiceChecklist
@@ -37,7 +37,7 @@ def handle_checklist_update(data):
     if timestamp:
         timestamp = datetime.fromisoformat(timestamp)
     else:
-        timestamp = datetime.now()
+        timestamp = datetime.now(timezone.utc)
 
     logger.info(f"[SocketIO] checklist_update received: session_id={session_id}, step_id={step_id}, checked={checked}")
 

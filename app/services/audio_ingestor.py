@@ -25,7 +25,7 @@ MQTT_BROKER = "localhost"
 MQTT_PORT = 1883
 
 AUDIO_TOPIC = "rp/+/audio/stream"
-KWS_TOPIC = "rp/+/event/kws"
+KWS_TOPIC = "rp/+/event/kws/+"
 
 audio_queue = queue.Queue()
 model = get_whisper_model()
@@ -53,26 +53,24 @@ def on_message(client, userdata, msg):
         return
 
     rp_id = parts[1].upper()
-    channel = parts[2]
-    event_type = parts[3]
-
     app = userdata["app"]
 
-    # -----------------------------
-    # KWS EVENT
-    # -----------------------------
-    if channel == "event" and event_type == "kws":
+    if parts[2] == "event" and parts[3] == "kws":
+        if len(parts) < 5:
+            print("[INGESTOR] Invalid KWS topic:", msg.topic)
+            return
+
+        event_type = parts[4].lower()
+        payload["event"] = event_type 
+
         with app.app_context():
             handle_kws_event(rp_id, payload)
         return
 
-    # -----------------------------
-    # AUDIO STREAM
-    # -----------------------------
-    if channel == "audio" and event_type == "stream":
+    if parts[2] == "audio" and parts[3] == "stream":
         audio_queue.put((rp_id, payload))
         return
-
+    
 
 # =====================================
 # AUDIO WORKER THREAD
@@ -100,10 +98,14 @@ def process_audio_chunk(rp_id: str, payload: dict):
         return
 
     chunk_number = payload.get("chunk_number")
-    audio_b64 = payload.get("audio_base64")
+    audio_b64 = payload.get("audio")
+
+    if not isinstance(chunk_number, int):
+        print("[AUDIO] Invalid chunk_number")
+        return
 
     if not audio_b64:
-        print("[AUDIO] Missing audio_base64")
+        print("[AUDIO] Missing audio")
         return
 
     print(f"[AUDIO] queued SR={sr_id} rp={rp_id} chunk={chunk_number}")
