@@ -89,7 +89,7 @@
   }
 </style>
 
-<div class="container py-3 dashboard-wrapper" style="background: transparent;">
+<div class="container py-3 dashboard-wrapper" style="background: transparent">
   <!-- HEADER -->
   <div class="row align-items-center mb-3 flex-shrink-0">
     <div class="col-md-7">
@@ -146,7 +146,7 @@
             class="btn btn-outline-danger btn-lg w-100 fw-bold opacity-50"
             onclick="handleEndSession()"
             disabled
-            >
+          >
             <i class="bi bi-stop-circle me-2"></i> Stop Session Manually
           </button>
           <div id="btn-hint" class="text-center mt-2 px-3">
@@ -199,13 +199,9 @@
               id="accuracy-val"
               class="badge bg-info text-white px-3 py-2 rounded-pill mt-2 small"
             >
-              Accuracy:
-                {% if active_session and active_session.confidence is not none %}
-                  {{ (active_session.confidence * 100) | round(1) }}%
-                {% else %}
-                  --
-                {% endif %}
-
+              Accuracy: {% if active_session and active_session.confidence is
+              not none %} {{ (active_session.confidence * 100) | round(1) }}% {%
+              else %} -- {% endif %}
             </span>
           </div>
         </div>
@@ -277,6 +273,7 @@
 </div>
 
 <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
     const socket = io();
     const myRpId = "{{ workstation.rpi_id if workstation else '' }}";
@@ -310,19 +307,38 @@
 
     socket.on("session_started", (payload) => {
       if (payload.rp_id !== myRpId) return; // ignore other RPs
-      alert(`Session started\nSession ID: ${payload.session_id}`);
+
+      Swal.fire({
+        title: 'Session Started',
+        text: `Session ID: ${payload.session_id}`,
+        icon: 'success',
+        confirmButtonColor: '#198754', // Warna hijau success
+        timer: 3000 // Otomatis tutup dalam 3 detik jika tidak diklik
+      });
+
       updateUI(payload);
     });
 
     socket.on("session_ended", (data) => {
       if (data.rp_id !== myRpId) return; // ignore other RPs
-      alert(`Session ended successfully.\nSession ID: ${data.session_id}`);
-      location.reload();
+      Swal.fire({
+        title: 'Session Ended',
+        text: 'Sesi Anda telah berakhir dengan sukses.',
+        icon: 'info',
+        confirmButtonColor: '#0d6efd'
+      }).then(() => {
+        location.reload();
+      });
     });
 
     socket.on("session_end_rejected", (data) => {
       if (data.rp_id && data.rp_id !== myRpId) return; // ignore other RPs
-      alert(data.message || "Session cannot be ended. Checklist incomplete.");
+      Swal.fire({
+        title: 'Cannot End Session',
+        text: data.message || "Checklist incomplete.",
+        icon: 'warning',
+        confirmButtonColor: '#dc3545' // Warna merah danger
+      });
     });
 
     // ===========================

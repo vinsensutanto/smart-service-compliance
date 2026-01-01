@@ -13,9 +13,9 @@ from paho.mqtt import client as mqtt_client
 # ======================================
 
 RP_ID = "RP0002"
-# AUDIO_FILE = "data/audio/penggantiankartuatm_laki_cepat.mp3"
+AUDIO_FILE = "data/audio/penggantiankartuatm_laki_cepat.mp3"
 # AUDIO_FILE = "data/audio/pendaftaranmbca_laki_tidakfasih.mp3"
-AUDIO_FILE = "data/audio/pembukaanrekeningtahapan_wanita.mp3"
+# AUDIO_FILE = "data/audio/pembukaanrekeningtahapan_wanita.mp3"
 
 MQTT_BROKER = "localhost"
 MQTT_PORT = 1883
