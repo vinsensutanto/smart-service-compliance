@@ -32,8 +32,8 @@ model = get_whisper_model()
 
 SERVICE_KEY_MAP = {
     "MBCA_REGISTRATION": "SV0003",
-    "OPEN_ACCOUNT": "SV0001",
-    "ATM_REPLACEMENT": "SV0002",
+    "OPEN_ACCOUNT": "SV0002",
+    "ATM_REPLACEMENT": "SV0001",
 }
 
 
