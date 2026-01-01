@@ -47,6 +47,10 @@ SERVICE_RULES = {
             "kartu hilang": 0.7,
             "kartu rusak": 0.6,
             "ganti kartu": 0.6,
+            "penggantian kartu": 0.7,
+            "penggantian atm": 0.7,
+            "kartu tidak bisa": 0.4,
+            "atm tidak bisa": 0.4,
             "kartu tertelan": 0.7,
         }
     }

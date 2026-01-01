@@ -18,10 +18,13 @@ from app.services.kws_event_handler import handle_kws_event
 from scripts.stt_whisper import transcribe_chunk
 import re
 
+import soundfile as sf
+import numpy as np
+
 # =====================================
 # CONFIG
 # =====================================
-MQTT_BROKER = "localhost"
+MQTT_BROKER = "10.70.239.9"
 MQTT_PORT = 1883
 
 AUDIO_TOPIC = "rp/+/audio/stream"
@@ -114,8 +117,26 @@ def process_audio_chunk(rp_id: str, payload: dict):
     # Decode audio → temp mp3
     # ---------------------------------
     audio_bytes = base64.b64decode(audio_b64)
-    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
-        tmp.write(audio_bytes)
+    # with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
+    #     tmp.write(audio_bytes)
+    #     tmp_path = tmp.name
+    # audio_b64 = payload.get("audio")
+    fmt = payload.get("format")
+    sr = payload.get("sample_rate", 16000)
+
+    if fmt != "pcm_s16le":
+        print("[AUDIO] Unsupported format:", fmt)
+        return
+
+    pcm = np.frombuffer(base64.b64decode(audio_b64), dtype=np.int16)
+
+    if len(pcm) < sr * 1:   # < 1 detik
+        return
+
+    audio_float = pcm.astype(np.float32) / 32768.0
+
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+        sf.write(tmp.name, audio_float, sr)
         tmp_path = tmp.name
 
     # ---------------------------------
@@ -154,7 +175,8 @@ def process_audio_chunk(rp_id: str, payload: dict):
     # EARLY SERVICE DETECTION (ONE-SHOT)
     # ---------------------------------
     if not service_already_locked:
-        service_key, label, confidence, hits = detect_service(full_text)
+        recent_text = " ".join(record.text.split()[-30:])
+        service_key, label, confidence, hits = detect_service(recent_text)
 
         if service_key and should_lock_service(service_key, confidence):
             service_id = SERVICE_KEY_MAP.get(service_key)
