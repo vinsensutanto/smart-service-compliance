@@ -6,15 +6,19 @@ import re
 # --------------------------------
 # Service keyword rules (weighted, ASR-aware)
 # --------------------------------
+INTENT_SCORE = 0.5
+
 SERVICE_RULES = {
     "MBCA_REGISTRATION": {
         "label": "Pendaftaran m-BCA",
         "threshold": 0.65,
         "keywords": {
             "pendaftaran m": 0.7,
+            "pendaftaran mbca": 0.7,
+            "registrasi": 0.7,
             "daftar mbca": 0.7,
-            "m bca": 0.5,
-            "mbca": 0.5,
+            "m bca": 0.65,
+            "mbca": 0.65,
             "bca mobile": 0.6,
             "mobile banking": 0.6,
 
@@ -31,9 +35,9 @@ SERVICE_RULES = {
             "pembukaan rekening": 0.8,
             "rekening tahapan": 0.8,
 
-            "rekening baru": 0.5,
-            "buka rekening": 0.6,
-            "buat rekening": 0.6,
+            "rekening baru": 0.65,
+            "buka rekening": 0.65,
+            "buat rekening": 0.65,
             "nasabah baru": 0.5,
             "tabungan": 0.4,
         }
@@ -41,9 +45,9 @@ SERVICE_RULES = {
 
     "ATM_REPLACEMENT": {
         "label": "Penggantian Kartu ATM",
-        "threshold": 0.65,
+        "threshold": 0.6,
         "keywords": {
-            "kartu atm": 0.5,
+            "kartu atm": 0.7,
             "kartu hilang": 0.7,
             "kartu rusak": 0.6,
             "ganti kartu": 0.6,
@@ -52,15 +56,43 @@ SERVICE_RULES = {
             "kartu tidak bisa": 0.4,
             "atm tidak bisa": 0.4,
             "kartu tertelan": 0.7,
-        }
+            "gantian kartu":0.7,
+        },
+        "intents": [
+            "mau ganti kartu",
+            "proses penggantian",
+            "atm saya rusak",
+            "kartu atm hilang",
+        ]
     }
 }
 
+# def normalize_text(text: str) -> str:
+#     text = text.lower()
+#     text = re.sub(r"[^a-z0-9\s]", " ", text)
+#     text = re.sub(r"\s+", " ", text).strip()
+#     return text
+
 def normalize_text(text: str) -> str:
     text = text.lower()
-    text = re.sub(r"[^a-z0-9\s]", " ", text)
-    text = re.sub(r"\s+", " ", text).strip()
+
+    # basic typo normalization (ASR-aware)
+    text = text.replace("menggantian", "penggantian")
+    text = text.replace("mengganti", "ganti")
+    text = text.replace("pengganti", "ganti")
+
+    # remove punctuation
+    # text = re.sub(r"[^a-z0-9\s]", " ", text)
+    # text = re.sub(r"\s+", " ", text).strip()
     return text
+
+def keyword_match(keyword: str, text: str) -> bool:
+    kw_tokens = keyword.split()
+    text_tokens = text.split()
+    return all(t in text_tokens for t in kw_tokens)
+
+def phrase_match(phrase: str, text: str) -> bool:
+    return keyword_match(phrase, text)
 
 def detect_service(text: str) -> Tuple[str, str, float, List[str]]:
     """
@@ -86,9 +118,17 @@ def detect_service(text: str) -> Tuple[str, str, float, List[str]]:
         hits = []
 
         for kw, weight in rule["keywords"].items():
-            if kw in norm_text:
+            # if kw in norm_text:
+            #     score += weight
+            #     hits.append(kw)
+            if keyword_match(kw, norm_text):
                 score += weight
                 hits.append(kw)
+
+        for phrase in rule.get("intents", []):
+            if phrase_match(phrase, norm_text):
+                score += INTENT_SCORE
+                hits.append(phrase)
 
         if hits:
             print(

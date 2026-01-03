@@ -3,7 +3,7 @@ import json
 from datetime import datetime, timezone
 import paho.mqtt.publish as publish
 
-MQTT_BROKER = "10.70.239.9"
+MQTT_BROKER = "10.159.121.208"
 MQTT_PORT = 1883
 
 

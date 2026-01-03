@@ -215,7 +215,7 @@ def handle_manual_end(data):
         )
         return
 
-    publish_end_stream(sr_id)
+    publish_end_stream(rp_id)
     socketio.emit(
         "session_ended",
         {"session_id": sr_id, "reason": reason, "rp_id": rp_id}

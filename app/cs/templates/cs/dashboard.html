@@ -325,7 +325,8 @@
         title: 'Session Ended',
         text: 'Sesi Anda telah berakhir dengan sukses.',
         icon: 'info',
-        confirmButtonColor: '#0d6efd'
+        confirmButtonColor: '#0d6efd',
+        timer: 3000 
       }).then(() => {
         location.reload();
       });
@@ -337,7 +338,8 @@
         title: 'Cannot End Session',
         text: data.message || "Checklist incomplete.",
         icon: 'warning',
-        confirmButtonColor: '#dc3545' // Warna merah danger
+        confirmButtonColor: '#dc3545', // Warna merah danger
+        timer: 3000 
       });
     });
 

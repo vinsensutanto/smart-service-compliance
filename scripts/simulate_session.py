@@ -17,7 +17,7 @@ AUDIO_FILE = "data/audio/penggantiankartuatm_laki_cepat.mp3"
 # AUDIO_FILE = "data/audio/pendaftaranmbca_laki_tidakfasih.mp3"
 # AUDIO_FILE = "data/audio/pembukaanrekeningtahapan_wanita.mp3"
 
-MQTT_BROKER = "10.70.239.9"
+MQTT_BROKER = "10.159.121.208"
 MQTT_PORT = 1883
 
 TOPIC_KWS_START = f"rp/{RP_ID}/event/kws/start"

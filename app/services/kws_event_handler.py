@@ -80,7 +80,7 @@ def handle_kws_event(rp_id: str, payload: dict):
         )
 
         if sr_id:
-            publish_end_stream(sr_id)
+            publish_end_stream(rp_id)
             
             print(f"[KWS] END session SR={sr_id} rp={rp_id}")
 

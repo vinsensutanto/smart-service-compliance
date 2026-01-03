@@ -24,7 +24,7 @@ import numpy as np
 # =====================================
 # CONFIG
 # =====================================
-MQTT_BROKER = "10.70.239.9"
+MQTT_BROKER = "10.159.121.208"
 MQTT_PORT = 1883
 
 AUDIO_TOPIC = "rp/+/audio/stream"
@@ -130,8 +130,8 @@ def process_audio_chunk(rp_id: str, payload: dict):
 
     pcm = np.frombuffer(base64.b64decode(audio_b64), dtype=np.int16)
 
-    if len(pcm) < sr * 1:   # < 1 detik
-        return
+    # if len(pcm) < sr * 1:   # < 1 detik
+    #     return
 
     audio_float = pcm.astype(np.float32) / 32768.0
 
@@ -253,12 +253,15 @@ def process_audio_chunk(rp_id: str, payload: dict):
 # START INGESTOR
 # =====================================
 def start_ingestor(app):
+    print("[INGESTOR] Connecting to MQTT...", MQTT_BROKER, MQTT_PORT)
     client = mqtt.Client(userdata={"app": app})
     client.on_message = on_message
 
     client.connect(MQTT_BROKER, MQTT_PORT, 60)
     client.subscribe(AUDIO_TOPIC)
     client.subscribe(KWS_TOPIC)
+
+    print("[INGESTOR] subscribed:", AUDIO_TOPIC, KWS_TOPIC)
 
     threading.Thread(
         target=audio_worker,
@@ -274,10 +277,10 @@ def split_text(text, max_len):
     return [text[i:i+max_len] for i in range(0, len(text), max_len)]
 
 def normalize_whisper_text(text: str) -> str:
-    text = text.replace("...", ",")
-    text = text.replace("..", ",")
-    text = text.replace(" .", ".")
-    text = re.sub(r"\s+,", ",", text)
-    text = re.sub(r"\s+\.", ".", text)
-    text = re.sub(r"\s{2,}", " ", text)
+    # text = text.replace("...", ",")
+    # text = text.replace("..", ",")
+    # text = text.replace(" .", ".")
+    # text = re.sub(r"\s+,", ",", text)
+    # text = re.sub(r"\s+\.", ".", text)
+    # text = re.sub(r"\s{2,}", " ", text)
     return text.strip()
