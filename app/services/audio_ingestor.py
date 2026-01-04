@@ -130,8 +130,8 @@ def process_audio_chunk(rp_id: str, payload: dict):
 
     pcm = np.frombuffer(base64.b64decode(audio_b64), dtype=np.int16)
 
-    # if len(pcm) < sr * 1:   # < 1 detik
-    #     return
+    if len(pcm) < sr * 0.5:   # < 1 detik
+        return
 
     audio_float = pcm.astype(np.float32) / 32768.0
 
@@ -271,7 +271,7 @@ def start_ingestor(app):
 
     client.loop_start()
 
-    print("[INGESTOR] audio ingestor READY")
+    print("[API SERVER READY]")
 
 def split_text(text, max_len):
     return [text[i:i+max_len] for i in range(0, len(text), max_len)]

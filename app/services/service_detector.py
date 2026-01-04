@@ -38,7 +38,8 @@ SERVICE_RULES = {
             "rekening baru": 0.65,
             "buka rekening": 0.65,
             "buat rekening": 0.65,
-            "nasabah baru": 0.5,
+            "nasabah baru": 0.65,
+            "nasa bah baru": 0.65,
             "tabungan": 0.4,
         }
     },

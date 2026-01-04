@@ -7,9 +7,9 @@ def calculate_session_score(record):
         return 100
 
     weights = {
-        "System Error / AI not responding": 90,
-        "Customer cancelled or left early": 80,
-        "Staff forgot to finish session": 40
+        "System Error / AI not responding": 100,
+        "Customer cancelled or left early": 100,
+        "Staff forgot to finish session": 75
     }
     # Ambil skor berdasarkan record.reason
-    return weights.get(record.reason, 60)
+    return weights.get(record.reason, 100)
