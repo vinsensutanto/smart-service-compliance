@@ -2,9 +2,10 @@
 import json
 from datetime import datetime, timezone
 import paho.mqtt.publish as publish
+import os
 
-MQTT_BROKER = "10.159.121.208"
-MQTT_PORT = 1883
+MQTT_BROKER = os.getenv("MQTT_BROKER")
+MQTT_PORT = int(os.getenv("MQTT_PORT", 1883))
 
 
 def publish_end_stream(rp_id: str):

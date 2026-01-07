@@ -16,6 +16,7 @@ from app.services.service_detector import detect_service, should_lock_service
 from app.services.sop_engine import load_sop_by_service_id
 from app.services.kws_event_handler import handle_kws_event
 from scripts.stt_whisper import transcribe_chunk
+import os
 import re
 
 import soundfile as sf
@@ -24,8 +25,8 @@ import numpy as np
 # =====================================
 # CONFIG
 # =====================================
-MQTT_BROKER = "10.159.121.208"
-MQTT_PORT = 1883
+MQTT_BROKER = os.getenv("MQTT_BROKER")
+MQTT_PORT = int(os.getenv("MQTT_PORT", 1883))
 
 AUDIO_TOPIC = "rp/+/audio/stream"
 KWS_TOPIC = "rp/+/event/kws/+"

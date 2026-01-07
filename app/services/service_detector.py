@@ -14,15 +14,17 @@ SERVICE_RULES = {
         "threshold": 0.65,
         "keywords": {
             "pendaftaran m": 0.7,
+            "pendaftaran": 0.7,
             "pendaftaran mbca": 0.7,
             "registrasi": 0.7,
             "daftar mbca": 0.7,
             "m bca": 0.65,
             "mbca": 0.65,
-            "bca mobile": 0.6,
-            "mobile banking": 0.6,
+            "bca mobile": 0.65,
+            "mobile banking": 0.65,
 
             "m bj ai": 0.4,
+            "mobil banking": 0.65,
             "bj ai": 0.3,
             "pendapatan m": 0.4,
         }

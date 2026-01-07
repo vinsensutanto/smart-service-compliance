@@ -17,8 +17,8 @@ AUDIO_FILE = "data/audio/penggantiankartuatm_laki_cepat.mp3"
 # AUDIO_FILE = "data/audio/pendaftaranmbca_laki_tidakfasih.mp3"
 # AUDIO_FILE = "data/audio/pembukaanrekeningtahapan_wanita.mp3"
 
-MQTT_BROKER = "10.159.121.208"
-MQTT_PORT = 1883
+MQTT_BROKER = os.getenv("MQTT_BROKER")
+MQTT_PORT = int(os.getenv("MQTT_PORT", 1883))
 
 TOPIC_KWS_START = f"rp/{RP_ID}/event/kws/start"
 TOPIC_KWS_END   = f"rp/{RP_ID}/event/kws/end"
